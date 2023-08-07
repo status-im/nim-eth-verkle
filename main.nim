@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[streams, strutils, sysrand],
+  std/[streams, strutils, strformat, sysrand, hashes],
   unittest2,
   stew/byteutils,
   kzg4844/kzg
@@ -11,7 +11,7 @@ type
   KateBlobs* = object
     kates*: seq[KzgCommitment]
     blobs*: seq[KzgBlob]
-from os import DirSep
+#from os import DirSep
 const
   #kzgPath* = currentSourcePath.rsplit(DirSep, 4)[0] & "/"
   #trustedSetupFile* = kzgPath & "trusted_setup.txt"
@@ -75,12 +75,38 @@ proc createKateBlobs(s: KzgSettings, n: int): KateBlobs =
     doAssert blob_to_kzg_commitment(kate, result.blobs[i], s) == KZG_OK
     result.kates.add(kate)
 
+
+# TODO: try different blob sizes
+proc generateRandomBlob(): KzgBlob =
+  discard urandom(result)
+  for i in 0..<len(result):
+    # don't overflow modulus. TODO: Why?
+    if result[i] > MAX_TOP_BYTE and i %% BYTES_PER_FIELD_ELEMENT == 0:
+      result[i] = MAX_TOP_BYTE
+
+
 let
   kzgs = readSetup()
 
 suite "verify proof (abi)":
   let
     settings = readSetup(trustedSetupFile)
+
+  test "testOnSave":
+    var blob = generateRandomBlob()
+    echo &"Blob:       {blob[0 ..< 4].toHex()}...{blob[blob.len-4 ..< blob.len].toHex()} (len {blob.len}, hash {hash(blob)})"
+    var commitment: KzgCommitment
+    assert KZG_OK == blob_to_kzg_commitment(commitment, blob, settings)
+    echo &"Commitment: {commitment[0 ..< 4].toHex()}...{commitment[commitment.len-4 ..< commitment.len].toHex()} (len {commitment.len}, hash {hash(commitment)})"
+    var proof: KzgProof
+    assert KZG_OK == compute_blob_kzg_proof(proof, blob, commitment, settings)
+    echo &"Proof:      {proof[0 ..< 4].toHex()}...{proof[proof.len-4 ..< proof.len].toHex()} (len {proof.len}, hash {hash(proof)})"
+    var success: bool
+    # Detects to some extent if commitment or proof were tampered with, returns res=kzg badargs, success=false
+    # When interchanging commitment and proof, returns res=ok, success=false
+    assert KZG_OK == verify_blob_kzg_proof(success, blob, commitment, proof, settings)
+    echo &"Verify:     {success}"
+
 
   test "verify batch proof success":
     var kb = kzgs.createKateBlobs(nblobs)
