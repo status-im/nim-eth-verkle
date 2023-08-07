@@ -1,0 +1,126 @@
+A one-page pseudo-code to help understand how C-KZG-4844 performs a proof verification.
+
+
+BLST lib
+    https://github.com/ethereum/c-kzg-4844/blob/main/bindings/go/blst_headers/blst.h#L57
+    typedef uint64_t limb_t;
+    typedef struct { byte b[256/8]; } blst_scalar;
+    typedef struct { limb_t l[256/8/sizeof(limb_t)]; } blst_fr; //-- should be 4*4 bytes
+    typedef struct { limb_t l[384/8/sizeof(limb_t)]; } blst_fp;
+    
+    typedef byte pow256[256/8];
+    blst_scalar_from_bendian
+        (complex code; https://github.com/supranational/blst/blob/master/src/exports.c#L421C16-L421C16)
+    blst_fr_from_scalar
+        (complex code; https://github.com/supranational/blst/blob/master/src/exports.c#L72)
+
+C-KZG-4844 lib
+    typedef blst_fr fr_t; /**< Internal Fr field element type. */
+    
+    typedef struct {
+        uint8_t bytes[BYTES_PER_BLOB];
+    } Blob;
+    
+    typedef struct {
+        fr_t evals[FIELD_ELEMENTS_PER_BLOB];
+    } Polynomial;
+   
+    #define FIELD_ELEMENTS_PER_BLOB 4096 // OVERRIDABLE
+   
+    /** The number of bytes in a KZG commitment. */
+    #define BYTES_PER_COMMITMENT 48
+
+    /** The number of bytes in a KZG proof. */
+    #define BYTES_PER_PROOF 48
+
+    /** The number of bytes in a BLS scalar field element. */
+    #define BYTES_PER_FIELD_ELEMENT 32
+
+    /** The number of bytes in a blob. */
+    #define BYTES_PER_BLOB (FIELD_ELEMENTS_PER_BLOB * BYTES_PER_FIELD_ELEMENT)
+
+    /** The G1 generator. */
+    static const g1_t G1_GENERATOR = { {0x5cb38790fd530c16L, 0x7817fc679976fff5L, 0x154f95c7143ba1c1L, 0xf0ae6acdf3d0e747L, 0xedce6ecc21dbf440L, 0x120177419e0bfb75L},{0xbaac93d50ce72271L, 0x8c22631a7918fd8eL, 0xdd595f13570725ceL,0x51ac582950405194L, 0x0e1c8c3fad0059c0L, 0x0bbc3efc5008a26aL},{0x760900000002fffdL, 0xebf4000bc40c0002L, 0x5f48985753c758baL,0x77ce585370525745L, 0x5c071a97a256ec6dL, 0x15f65ec3fa80e493L}};
+
+    /** The G2 generator. */
+    static const g2_t G2_GENERATOR = {{{{0xf5f28fa202940a10L, 0xb3f5fb2687b4961aL, 0xa1a893b53e2ae580L,0x9894999d1a3caee9L, 0x6f67b7631863366bL, 0x058191924350bcd7L},{0xa5a9c0759e23f606L, 0xaaa0c59dbccd60c3L, 0x3bb17e18e2867806L,0x1b1ab6cc8541b367L, 0xc2b6ed0ef2158547L, 0x11922a097360edf3L}}},{{{0x4c730af860494c4aL, 0x597cfa1f5e369c5aL, 0xe7e6856caa0a635aL,0xbbefb5e96e0d495fL, 0x07d3a975f0ef25a2L, 0x0083fd8e7e80dae5L},{0xadc0fc92df64b05dL, 0x18aa270a2b1461dcL, 0x86adac6a3be4eba0L,0x79495c4ec93da33aL, 0xe7175850a43ccaedL, 0x0b2bc2a163de1bf2L}}},{{{0x760900000002fffdL, 0xebf4000bc40c0002L, 0x5f48985753c758baL,0x77ce585370525745L, 0x5c071a97a256ec6dL, 0x15f65ec3fa80e493L},{0x0000000000000000L, 0x0000000000000000L, 0x0000000000000000L,0x0000000000000000L, 0x0000000000000000L, 0x0000000000000000L}}}};
+    
+    // Given a blob and its proof, verify that it corresponds to the provided commitment.
+    VERIFY_BLOB_KZG_PROOF(blob, commitment_bytes, proof_bytes, settings)
+    
+        commitment_g1 = bytes_to_kzg_commitment(commitment_bytes); // Convert untrusted bytes into a trusted and validated KZGCommitment.
+            validate_kzg_g1(commitment_bytes) // Perform BLS validation required by the types KZGProof and KZGCommitment.
+                /* Convert the bytes to a p1 point */
+                /* The uncompress routine checks that the point is on the curve */
+                p1_affine = blst_p1_uncompress(commitment_bytes)
+                return blst_p1_from_affine(p1_affine)
+        
+        proof_g1 = bytes_to_kzg_proof(proof_bytes)
+            validate_kzg_g1(proof_bytes)
+                (same as above)
+        
+        polynomial = blob_to_polynomial(blob) // Deserialize a Blob (array of bytes) into a Polynomial (array of field elements).
+            for 0..FIELD_ELEMENTS_PER_BLOB
+                bytes_to_bls_field // Convert untrusted bytes to a trusted and validated BLS scalar field element.
+                    blst_scalar_from_bendian --> blst_scalar
+                    blst_fr_from_scalar
+
+        challenge = byte[32] = compute_challenge(blob, commitment_g1) // Return the Fiat-Shamir challenge required to verify `blob` and `commitment`
+            tmp_buffer
+            // add stuff to buffer
+            bytes_from_g1(commitment_g1) // Copy commitment; Serialize a G1 group element into bytes.
+                tmp_buffer += blst_p1_compress(commitment_g1)
+            tmp2 = blst_sha256(tmp_buffer) // Single-shot SHA-256 hash function.
+            return hash_to_bls_field(tmp2) // Map bytes to a BLS field element.
+                blst_scalar_from_bendian
+                blst_fr_from_scalar
+
+        // Evaluate challenge to get y. //-- challenge == x? or possibly z?
+        fr_t y_fr = evaluate_polynomial_in_evaluation_form(polynomial, challenge, settings) // Evaluate a polynomial in evaluation form at a given point.
+            fr_t inverses_in[FIELD_ELEMENTS_PER_BLOB], inverses[FIELD_ELEMENTS_PER_BLOB]
+            for 0..FIELD_ELEMENTS_PER_BLOB
+                blst_fr_sub(&inverses_in[i], x, settings->roots_of_unity[i])
+            fr_batch_inv(inverses, inverses_in, FIELD_ELEMENTS_PER_BLOB) // Montgomery batch inversion in finite field.
+
+        // Call helper to do pairings check
+        // Verify KZG proof claiming that `p(z) == y`
+        // Given a @p commitment to a polynomial, a @p proof for @p z, and the claimed value @p y at @p z, verify the claim.
+        // @param[in]  commitment The commitment to a polynomial
+        // @param[in]  z          The point at which the proof is to be checked (opened)
+        // @param[in]  y          The claimed value of the polynomial at @p z
+        // @param[in]  proof      A proof of the value of the polynomial at the point @p z
+        // @param[in]  s          The trusted setup
+        return verify_kzg_proof_impl(commitment_g1, z=challenge, y_fr, proof_g1, settings)
+
+            // Calculate: X_minus_z
+            x_g2 = g2_mul(G2_GENERATOR, z) // Multiply a G2 group element by a field element.
+                scalar = blst_scalar_from_fr(z)
+                // The last argument is the number of bits in the scalar
+                return blst_p2_mult(G2_GENERATOR, scalar.b, 8 * sizeof(blst_scalar)) // sizeof=32
+
+            // Subtraction of G2 group elements.
+            // a   A G2 group element
+            // b   The G2 group element to be subtracted
+            X_minus_z = g2_sub(a=settings->g2_values[1], x_g2)
+                bneg = x_g2
+                blst_p2_cneg(&bneg, cbit: true)
+                return blst_p2_add_or_double(a, bneg)
+
+            // Calculate: P_minus_y
+            // a   The G1 group element
+            // b   The multiplier
+            y_g1 = g1_mul(a=G1_GENERATOR, b=y_fr)
+                scalar = blst_scalar_from_fr(b)
+                // The last argument is the number of bits in the scalar
+                return blst_p1_mult(a, scalar.b, 8 * sizeof(blst_scalar)) // = 8*32
+
+            // Subtraction of G1 group elements.
+            // a   A G1 group element
+            // b   The G1 group element to be subtracted
+            P_minus_y = g1_sub(a=commitment_g1, b=y_g1);
+                g1_t bneg = b
+                blst_p1_cneg(&bneg, true);
+                return blst_p1_add_or_double(a, bneg);
+
+            /* Verify: P - y = Q * (X - z) */
+            pairings_verify(P_minus_y, G2_GENERATOR, proof, X_minus_z);
