@@ -1,0 +1,6 @@
+[submodule "compatibility/rust-verkle"]
+	path = compatibility/rust-verkle
+	url = https://github.com/daniellm/rust-verkle
+[submodule "compatibility/go-verkle"]
+	path = compatibility/go-verkle
+	url = https://github.com/daniellm/go-verkle
