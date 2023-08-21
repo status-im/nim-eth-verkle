@@ -6,7 +6,7 @@
         {
             "label": "Build Nim Project",
             "type": "shell",
-            "command": "nim --out:bin/main -d:debug --debugger:native c -r main testOnSave",
+            "command": "nim --out:bin/main -d:debug --opt:none --hints:off --debugger:native c -r main testOnSave",
             "group": {
                 "kind": "build",
                 "isDefault": true
