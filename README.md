@@ -10,16 +10,15 @@ in the Nim programming language, to be integrated into the [Nimbus project](http
 
 # TODO
 
-## KZG polynomial commitments
+## Banderwagon commitments
 
-- [ ] Evaluate if the [c-kzg-4844 library](https://github.com/ethereum/c-kzg-4844) can be used or extended to support computing KZG commitments with the parameters needed for Verkle trees (32 bytes keys and values, 256 items per commitment).
-- [ ] If not, implement the logic by making use of [IPA Multipoint](https://github.com/crate-crypto/ipa_multipoint) / [Banderwagon](https://github.com/crate-crypto/banderwagon) / [blst](https://github.com/supranational/blst)
+- [ ] Implement the logic by making use of [IPA Multipoint](https://github.com/crate-crypto/ipa_multipoint) / [Banderwagon](https://github.com/crate-crypto/banderwagon) / [blst](https://github.com/supranational/blst)
 - [ ] Create tests focusing on the integration between the high-level Nim code and libraries, e.g. big/little endian issues
 
 
 ## Verkle tree implementation
 
-- [ ] Implement the Verkle tree structure, with basic operations (e.g. adding nodes)
+- [X] Implement the Verkle tree structure, with basic operations (e.g. adding nodes)
 - [ ] Support computation of commitments / proofs. Possibly, cache them in the tree.
 - [ ] Support tree mutation with minimal recomputation of commitments
 - [ ] Create tests, focusing on edge cases (empty tree, sparse tree, dense tree, consistency after mutations). Possibly use fuzzing with deterministic random, as done in [rust-verkle](https://github.com/crate-crypto/rust-verkle/blob/master/verkle-trie/tests/trie_fuzzer.rs).
