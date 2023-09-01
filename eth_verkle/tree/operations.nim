@@ -9,10 +9,10 @@
 
 import
   std/[sequtils, sugar],
-  ../[utils, config],
-  tree
-when TraceLogs: import std/strformat
+  ".."/[utils, config],
+  ./tree
 
+when TraceLogs: import std/strformat
 
 proc setValue(node: ValuesNode, index: byte, value: Bytes32) =
   ## Heap-allocates the given `value` and stores it at the given `index`

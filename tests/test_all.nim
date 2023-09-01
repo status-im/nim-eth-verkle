@@ -8,11 +8,12 @@
 ##  The main module. Provides some tests.
 
 import
-  std/[random, streams],
+  std/[random, streams, os],
   unittest2,
-  src/utils,
-  src/tree/[tree, operations]
+  ../eth_verkle/utils,
+  ../eth_verkle/tree/[tree, operations]
 
+createDir "testResults"
 
 suite "main":
 
