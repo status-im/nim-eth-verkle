@@ -68,3 +68,36 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
   # Store the value in the ValuesNode, as per the key's last byte offset
   vn.setValue(key[^1], value)
   when TraceLogs: echo &"Added value to slot '{key[^1].toHex}'"
+
+
+proc deleteValue*(node: BranchesNode, key: Bytes32): bool =
+  ## Deletes the value associated with the given `key` from the tree.
+  var current = node
+  var depth = 0
+  when TraceLogs: echo &"Deleting value for key {key.toHex}"
+
+  # Walk down the tree until the branch closest to the key
+  while current.branches[key[depth]] of BranchesNode:
+    when TraceLogs: echo &"At node {cast[uint64](current)}. Going down to branch '{key[depth].toHex}' at depth {depth}"
+    current = current.branches[key[depth]].BranchesNode
+    inc(depth)
+
+  # If we reached a ValuesNode...
+  var vn = current.branches[key[depth]].ValuesNode
+  if vn != nil:
+    when TraceLogs: echo &"At node {cast[uint64](current)}. Found ValuesNode at branch '{key[depth].toHex}', depth {depth}, addr {cast[uint64](vn)}"
+    when TraceLogs: echo &"    Stem: {vn.stem.toHex}"
+
+    # If the stem differs from the key, we can't use that ValuesNode.
+    # This means the value doesn't exist for the given key, so we return false.
+    var divergence = vn.stem.zip(key).firstMatchAt(tup => tup[0] != tup[1])
+    if divergence.found:
+      return false
+
+    # If the stem matches the key, we found the ValuesNode for the key.
+    # We remove it by setting the branch to nil.
+    current.branches[key[depth]].ValuesNode.values[key[^1]] = nil
+    return true
+
+  # If no ValuesNode was found for the key, it means the value doesn't exist.
+  return false
