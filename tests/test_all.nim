@@ -51,6 +51,36 @@ suite "main":
     #echo $tree  # print keys --> values
     tree.printTree(newFileStream(stdout)) # prints full tree
 
+  test "testDelValues":
+    ## Makes a small sample tree
+    var tree = new BranchesNode
+    var key, value: Bytes32
+    for (keyHex, valueHex) in sampleKvps:
+      key[0..^1] = keyHex.fromHex
+      value[0..^1] = valueHex.fromHex
+      tree.setValue(key, value)
+
+    ## Deletes some values
+    key[0..^1] = sampleKvps[6][0].fromHex
+    doAssert tree.deleteValue(key) == true
+    key[0..^1] = sampleKvps[7][0].fromHex
+    doAssert tree.deleteValue(key) == true
+    key[0..^1] = sampleKvps[8][0].fromHex
+    doAssert tree.deleteValue(key) == true
+    tree.printTree(newFileStream(stdout)) # prints full tree
+
+  test "testDelNonExistingValues":
+    var key1, key2, key3, value: Bytes32
+    key1[0..^1] = "2200000000000000000000000000000000000000000000000000000000000000".fromHex
+    key2[0..^1] = "2211000000000000000000000000000000000000000000000000000000000000".fromHex
+    key3[0..^1] = "3300000000000000000000000000000000000000000000000000000000000000".fromHex 
+    value[0..^1] = "0000000000000000000000000000000000000000000000000000000000000000".fromHex 
+
+    var tree = new BranchesNode
+    tree.setValue(key1, value)
+    tree.setValue(key2, value)
+
+    doAssert tree.deleteValue(key3) == false
 
   test "randomValues_10000":
     ## Writes a larger tree with random nodes to a file
