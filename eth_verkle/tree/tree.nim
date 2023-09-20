@@ -9,8 +9,9 @@
 ##  pretty printing and serialization methods
 
 import
-  std/streams,
+  std/[streams, tables, strformat],
   ../utils
+
 
 # TODO: make sizes configurable
 
@@ -18,17 +19,25 @@ type
   Bytes32* = array[32, byte]
     ## A 32-bytes blob that can represent a verkle key or value
 
+  Field* = array[4, uint64]
+
+  Point* = object
+    X*, Y*, Z*: Field
+
   Node* = ref object of RootObj
     ## Base node type
+    commitment*: Point
 
   BranchesNode* = ref object of Node
     ## Internal node in the tree that holds references to 256 child nodes (or nil-s)
     branches*: array[256, Node]
+    commitmentsSnapshot*: ref Table[byte, Point]
 
   ValuesNode* = ref object of Node
     ## Leaf node in the tree that holds references to 256 values (or nil-s)
     stem*:   array[31, byte]
     values*: array[256, ref Bytes32]
+    c1*, c2*: Point
 
 
 iterator enumerateTree*(node: BranchesNode):
@@ -56,12 +65,27 @@ iterator enumerateTree*(node: BranchesNode):
       inc(last.index)
       if child != nil:
         # If the child node is non-empty, return it
-        yield (node: child, depth: stack.len.uint8, index: last.index.uint8 - 1)
+        yield (node: child, depth: stack.len.uint8, index: (last.index-1).uint8)
 
         # If the child is a BranchesNode, we push it to the stack and start
         # iterating its own children next iteration (starting from index 0)
         if child of BranchesNode:
           stack.add((child.BranchesNode, 0))
+
+
+
+iterator enumerateModifiedTree*(node: BranchesNode, depth: uint8 = 1):
+    tuple[node: Node, depth: uint8, index: uint8] {.closure.} =
+  ## Iterates over all the nodes in the tree which were modified, or had one of
+  ## their descendants modified
+  if node.commitmentsSnapshot != nil:
+    for index in node.commitmentsSnapshot.keys:
+      let child = node.branches[index]
+      yield (child, depth, index)
+      if child of BranchesNode:
+        for item in enumerateModifiedTree(child.BranchesNode, depth + 1):
+          yield item
+
 
 
 iterator enumerateValues*(node: BranchesNode):
@@ -84,7 +108,9 @@ iterator enumerateValues*(node: BranchesNode):
 
 proc printTreeValues*(node: BranchesNode, stream: Stream) =
   ## Writes all the key-value pairs into the given `stream`, in the form:
+  ## 
   ## (hex key) --> (hex value)
+  ## 
   ## (hex key) --> (hex value)
   for key, value in node.enumerateValues():
     stream.writeAsHex(key)
@@ -95,7 +121,9 @@ proc printTreeValues*(node: BranchesNode, stream: Stream) =
 
 proc `$`*(node: BranchesNode): string =
   ## Returns all the key-value pairs in the tree in the form:
+  ## 
   ## (hex key) --> (hex value)
+  ## 
   ## (hex key) --> (hex value)
   var stream = newStringStream()
   printTreeValues(node, stream)
@@ -105,20 +133,26 @@ proc `$`*(node: BranchesNode): string =
 
 proc printTree*(node: BranchesNode, stream: Stream) =
   ## Writes all the nodes and values into the given `stream`.
-  ## Outputs a line for each branch and value in the tree, indented by depth.
-  stream.writeLine("<Tree root>")
+  ## Outputs a line for each branch, stem and value in the tree, indented by
+  ## depth, along with their commitment.
+  stream.writeLine(&"<Tree root>                                                                                                                                 Branch. Commitment: {node.commitment.X[0].byte.toHex}")
   for n, depth, parentIndex in node.enumerateTree():
     for _ in 0 ..< depth.int:
       stream.write("  ")
     stream.writeAsHex(parentIndex.byte)
-    stream.writeLine()
-    if (n of ValuesNode):
+    if n of BranchesNode:
+      for _ in depth.int .. 68:
+        stream.write("  ")
+      stream.writeLine(&"Branch. Commitment: {n.commitment.X[0].byte.toHex}")
+    elif n of ValuesNode:
+      stream.writeAsHex(n.ValuesNode.stem[depth..^1])
+      for _ in 0 .. 37:
+        stream.write("  ")
+      stream.writeLine(&"Leaves. Commitment: {n.commitment.X[0].byte.toHex}")
       for valueIndex, value in n.ValuesNode.values.pairs:
         if value != nil:
-          for _ in 0 .. depth.int:
-            stream.write("  ")
-          stream.writeAsHex(n.ValuesNode.stem[depth..^1])
+          stream.write("                                                                ")
           stream.writeAsHex(valueIndex.byte)
           stream.write(" --> ")
           stream.writeAsHex(value[])
-          stream.writeLine()
+          stream.writeLine("     Leaf.")

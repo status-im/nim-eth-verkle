@@ -6,10 +6,13 @@
         {
             "label": "Build Nim Project",
             "type": "shell",
-            "command": "nim --out:bin/main -d:debug --opt:none --hints:off --debugger:native c -r main testOnSave",
+            "command": "nim --out:bin/main -d:debug --opt:none --hints:off --debugger:native c -r tests/test_all testOnSave",
             "group": {
                 "kind": "build",
                 "isDefault": true
+            },
+            "presentation": {
+              "clear": true // clear terminal
             }
         }
     ]

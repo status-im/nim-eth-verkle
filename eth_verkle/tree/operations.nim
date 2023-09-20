@@ -10,7 +10,8 @@
 import
   std/[sequtils, sugar],
   ".."/[utils, config],
-  ./tree
+  ./tree,
+  ./commitment
 
 when TraceLogs: import std/strformat
 
@@ -18,7 +19,14 @@ proc setValue(node: ValuesNode, index: byte, value: Bytes32) =
   ## Heap-allocates the given `value` and stores it at the given `index`
   var heapValue = new Bytes32
   heapValue[] = value
+  node.updateCommitment(index, heapValue)
   node.values[index] = heapValue
+
+
+proc deleteValue(node: ValuesNode, index: byte) =
+  ## Deletes the value at the given `index`, if any
+  node.updateCommitment(index, nil)
+  node.values[index] = nil
 
 
 # TODO: prevent setting a value from a non-root node
@@ -31,6 +39,7 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
   # Walk down the tree till the branch closest to the key
   while current.branches[key[depth]] of BranchesNode:
     when TraceLogs: echo &"At node {cast[uint64](current)}. Going down to branch '{key[depth].toHex}' at depth {depth}"
+    current.snapshotChildCommitment(key[depth])
     current = current.branches[key[depth]].BranchesNode
     inc(depth)
 
@@ -42,32 +51,39 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
 
     # If the stem differs from the key, we can't use that ValuesNode. We need to
     # insert intermediate branches till the point they diverge, pushing down the
-    # current ValuesNode, and the proceed to create a new ValuesNode
+    # current ValuesNode, and then proceed to create a new ValuesNode
+    # Todo: zip makes a memory allocation. avoid.
     var divergence = vn.stem.zip(key).firstMatchAt(tup => tup[0] != tup[1])
     if divergence.found:
       when TraceLogs: echo &"    Key:  {key.toHex}"
-      when TraceLogs: echo &"    Found difference at depth {divergence.index}"
+      when TraceLogs: echo &"    Found difference at depth {divergence.index}; inserting intermediate branches"
       while depth < divergence.index:
         let newBranch = new BranchesNode
+        current.snapshotChildCommitment(key[depth])
         current.branches[key[depth]] = newBranch
-        when TraceLogs: echo &"At node {cast[uint64](current)}. Replaced ValuesNode with a new branch at '{key[depth].toHex}', depth {depth}, new branch addr {cast[uint64](newBranch)}"
+        when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned new branch at '{key[depth].toHex}', depth {depth}, addr {cast[uint64](newBranch)}"
         current = newBranch
         inc(depth)
-        current.branches[vn.stem[depth]] = vn
-        when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned ValuesNode to new branch at '{vn.stem[depth].toHex}', depth {depth}, ValuesNodes addr {cast[uint64](vn)}"
+      current.snapshotChildCommitment(vn.stem[depth])
+      current.branches[vn.stem[depth]] = vn
+      when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned ValuesNode at '{vn.stem[depth].toHex}', depth {depth}, addr {cast[uint64](vn)}"
       vn = nil # We can't use it
+
+  current.snapshotChildCommitment(key[depth])
 
   # The current branch does not contain a ValuesNode at the required offset;
   # create one
   if vn == nil:
     vn = new ValuesNode
     vn.stem[0..<31] = key[0..<31]
+    vn.initializeCommitment()
     current.branches[key[depth]] = vn
     when TraceLogs: echo &"Created ValuesNode at depth {depth}, branch '{key[depth].toHex}', stem {vn.stem.toHex}"
 
   # Store the value in the ValuesNode, as per the key's last byte offset
   vn.setValue(key[^1], value)
   when TraceLogs: echo &"Added value to slot '{key[^1].toHex}'"
+
 
 
 proc deleteValue*(node: BranchesNode, key: Bytes32): bool =
@@ -79,6 +95,7 @@ proc deleteValue*(node: BranchesNode, key: Bytes32): bool =
   # Walk down the tree until the branch closest to the key
   while current.branches[key[depth]] of BranchesNode:
     when TraceLogs: echo &"At node {cast[uint64](current)}. Going down to branch '{key[depth].toHex}' at depth {depth}"
+    current.snapshotChildCommitment(key[depth])
     current = current.branches[key[depth]].BranchesNode
     inc(depth)
 
@@ -96,7 +113,9 @@ proc deleteValue*(node: BranchesNode, key: Bytes32): bool =
 
     # If the stem matches the key, we found the ValuesNode for the key.
     # We remove it by setting the branch to nil.
-    current.branches[key[depth]].ValuesNode.values[key[^1]] = nil
+    current.snapshotChildCommitment(key[depth])
+    vn.deleteValue(key[^1])
+
     return true
 
   # If no ValuesNode was found for the key, it means the value doesn't exist.

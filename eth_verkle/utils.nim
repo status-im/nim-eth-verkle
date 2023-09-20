@@ -29,7 +29,7 @@ proc bitsToHex*(b: byte): char =
     of 13: result = 'd'
     of 14: result = 'e'
     of 15: result = 'f'
-    else: raise newException(Defect, "")
+    else: raise newException(ValueError, "Given byte must be uint4 (0-15)")
 
 
 proc hexToBits*(c: char): byte =
@@ -51,7 +51,7 @@ proc hexToBits*(c: char): byte =
     of 'd', 'D': result = 13
     of 'e', 'E': result = 14
     of 'f', 'F': result = 15
-    else: raise newException(Defect, "")
+    else: raise newException(ValueError, "Character must be hexadecimal (a-f | A-F | 0-9)")
 
 
 proc writeAsHex*(stream: Stream, b: byte) =
