@@ -6,9 +6,10 @@ import
   ../../constantine/constantine/math/io/io_fields,
   ../../constantine/constantine/curves_primitives
 
-const DOMAIN*: int = 256
-const seed* = asBytes"eth_verkle_oct_2021"
-const generator* = Banderwagon.getGenerator()
+const 
+  DOMAIN*: int = 256
+  seed* = asBytes"eth_verkle_oct_2021"
+  generator* = Banderwagon.getGenerator()
 
 type
   Bytes* = array[32, byte]
