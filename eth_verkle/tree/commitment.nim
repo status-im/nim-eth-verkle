@@ -1,11 +1,11 @@
 #   Nimbus
 #   Copyright (c) 2021-2023 Status Research & Development GmbH
 #   Licensed and distributed under either of
-#     * MIT license (license terms in the root directory or at https:#opensource.org/licenses/MIT).
-#     * Apache v2 license (license terms in the root directory or at https:#www.apache.org/licenses/LICENSE-2.0).
+#     * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#     * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-#   Note: this code is heavily based on the Go Verkle implementation. See https:#github.com/gballet/go-verkle
+#   Note: this code is heavily based on the Go Verkle implementation. See https://github.com/gballet/go-verkle
 
 ##  This module provides methods to generate commitments for tree nodes
 
@@ -182,27 +182,21 @@ proc updateCommitment*(vn: ValuesNode, index: byte, newValue: ref Bytes32) =
     return
 
   var frs: array[2, Field]
+
   if index < NodeWidth div 2:
     var oldC1 = vn.c1
     vn.updateCn(index, newValue, vn.c1)
-
     # Batch the Fr transformation of the new and old CX.
     banderwagonMultiMapToScalarField2([addr frs[0], addr frs[1]], [vn.c1, oldC1])
-
-    # If index is in the first NodeWidth/2 elements, we need to update C1. Otherwise, C2.
-    let cxIndex = 2 + int(index) div (NodeWidth div 2) # [1, stem, -> C1, C2 <-]
-    vn.updateC(cxIndex, frs[0], frs[1])
-
   else:
     var oldC2 = vn.c2
     vn.updateCn(index, newValue, vn.c2)
-
     # Batch the Fr transformation of the new and old CX.
     banderwagonMultiMapToScalarField2([addr frs[0], addr frs[1]], [vn.c2, oldC2])
 
-    # If index is in the first NodeWidth/2 elements, we need to update C1. Otherwise, C2.
-    let cxIndex = 2 + int(index) div (NodeWidth div 2) # [1, stem, -> C1, C2 <-]
-    vn.updateC(cxIndex, frs[0], frs[1])
+  # If index is in the first NodeWidth/2 elements, we need to update C1. Otherwise, C2.
+  let cxIndex = 2 + int(index) div (NodeWidth div 2) # [1, stem, -> C1, C2 <-]
+  vn.updateC(cxIndex, frs[0], frs[1])
 
 
 
