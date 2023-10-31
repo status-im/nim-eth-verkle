@@ -1,9 +1,11 @@
 #   Nimbus
 #   Copyright (c) 2021-2023 Status Research & Development GmbH
 #   Licensed and distributed under either of
-#     * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
-#     * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+#     * MIT license (license terms in the root directory or at https:#opensource.org/licenses/MIT).
+#     * Apache v2 license (license terms in the root directory or at https:#www.apache.org/licenses/LICENSE-2.0).
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+#   Note: this code is heavily based on the Go Verkle implementation. See https:#github.com/gballet/go-verkle
 
 ##  This module provides methods to generate commitments for tree nodes
 
@@ -20,23 +22,35 @@ const IdentityPoint = Point()
 
 
 # Todo: implement; this is a mock
-proc BanderwagonMultiMapToScalarField(fields: var openArray[Field], points: openArray[Point]) =
+proc banderwagonMultiMapToScalarField(fields: var openArray[Field], points: openArray[Point]) =
   for i in 0..<points.len:
     fields[i] = points[i].X
 
 
 # Todo: implement; this is a mock
-proc BanderwagonAddPoint(dst: var Point, src: Point) =
+proc banderwagonMultiMapToScalarField2(fields: openArray[ptr Field], points: openArray[Point]) =
+  for i in 0..<points.len:
+    fields[i][] = points[i].X
+
+
+# Todo: implement; this is a mock
+proc banderwagonAddPoint(dst: var Point, src: Point) =
   dst.X[0] += src.X[0]
 
 
 # Todo: implement; this is a mock
-proc BandesnatchSubtract(x, y: Field): Field =
+proc bandesnatchSubtract(x, y: Field): Field =
   [x[0] - y[0], 0, 0, 0]
 
 
+# Todo: implement
+# SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
+proc bandesnatchSetUint64(z: Field, v: uint64) =
+  discard
+
+
 # Todo: implement; this is a mock
-proc IpaCommitToPoly(poly: array[256, Field]): Point =
+proc ipaCommitToPoly(poly: array[256, Field]): Point =
   var x,y,z: Field
   for field in poly:
     x[0] += field[0]
@@ -44,17 +58,152 @@ proc IpaCommitToPoly(poly: array[256, Field]): Point =
 
 
 # Todo: implement
-proc initializeCommitment*(vn: ValuesNode) =
+proc fromLEBytes(field: var Field, data: openArray[byte]) =
   discard
 
 
-# Todo: implement; this is a mock; we set the commitment's X[0] (uint64) to be
-# the sum of the last byte of all stored values.
-proc updateCommitment*(vn: ValuesNode, index: byte, newValue: ref Bytes32) =
+# leafToComms turns a leaf into two commitments of the suffix
+# and extension tree.
+proc leafToComms(field1, field2: var Field, val: Bytes32) =
+  var valLoWithMarker: array[17, byte]
+  var loEnd = 16
+  if val.len < loEnd:
+    loEnd = val.len
+  valLoWithMarker[0..<loEnd] = val[0..<loEnd]
+  valLoWithMarker[16] = 1 # 2**128
+  fromLEBytes(field1, valLoWithMarker)
+  if val.len >= 16:
+    fromLEBytes(field2, val[16..^1])
+
+
+# fillSuffixTreePoly takes one of the two suffix tree and
+# builds the associated polynomial, to be used to compute
+# the corresponding C{1,2} commitment.
+proc fillSuffixTreePoly(poly: var openArray[Field], values: openArray[ref Bytes32]): int =
+  result = 0
+  for idx, val in values.pairs:
+    if val != nil:
+      inc result
+      var i = (idx shl 1) and 0xFF
+      leafToComms(poly[i], poly[i+1], val[])
+
+
+var EmptyCodeHashPoint: Point
+var EmptyCodeHashFirstHalfValue: Field
+var EmptyCodeHashSecondHalfValue: Field
+var FrZero: Field
+
+const NodeWidth = 256
+const CodeHashVectorPosition     = 3 # Defined by the spec.
+const EmptyCodeHashFirstHalfIdx  = CodeHashVectorPosition * 2
+const EmptyCodeHashSecondHalfIdx = EmptyCodeHashFirstHalfIdx + 1
+
+
+proc initializeCommitment*(vn: ValuesNode) =
+  # C1.
+  var c1poly: array[256, Field]
+  var count = fillSuffixTreePoly(c1poly, vn.values[0..<128])
+  let containsEmptyCodeHash =
+    len(c1poly) >= EmptyCodeHashSecondHalfIdx and
+    c1poly[EmptyCodeHashFirstHalfIdx] == EmptyCodeHashFirstHalfValue and
+    c1poly[EmptyCodeHashSecondHalfIdx] == EmptyCodeHashSecondHalfValue
+  if containsEmptyCodeHash:
+    # Clear out values of the cached point.
+    c1poly[EmptyCodeHashFirstHalfIdx] = FrZero
+    c1poly[EmptyCodeHashSecondHalfIdx] = FrZero
+    # Calculate the remaining part of c1 and add to the base value.
+    let partialc1 = ipaCommitToPoly(c1poly)
+    vn.c1 = EmptyCodeHashPoint
+    vn.c1.banderwagonAddPoint(partialc1)
+  else:
+    vn.c1 = ipaCommitToPoly(c1poly)
+
+  # C2.
+  var c2poly: array[256, Field]
+  count = fillSuffixTreePoly(c2poly, vn.values[128..<256])
+  vn.c2 = ipaCommitToPoly(c2poly)
+
+  # Root commitment preparation for calculation.
+  var poly: array[256, Field]
+  poly[0].bandesnatchSetUint64(1)
+  poly[1].fromLEBytes(vn.stem)
+  banderwagonMultiMapToScalarField2([addr poly[2], addr poly[3]], [vn.c1, vn.c2])
+  vn.commitment = ipaCommitToPoly(poly)
+
+
+
+proc updateCn(vn: ValuesNode, index: byte, value: ref Bytes32, c: var Point) =
+  var
+    old, newH: array[2, Field]
+    diff:      Point
+    poly:      array[NodeWidth, Field]
+
+  # Optimization idea:
+  # If the value is created (i.e. not overwritten), the leaf marker
+  # is already present in the commitment. In order to save computations,
+  # do not include it. The result should be the same,
+  # but the computation time should be faster as one doesn't need to
+  # compute 1 - 1 mod N.
   if vn.values[index] != nil:
-    vn.commitment.X[0] -= vn.values[index][^1]
-  if newValue != nil:
-    vn.commitment.X[0] += newValue[^1]
+    leafToComms(old[0], old[1], vn.values[index][])
+  if value != nil:
+    leafToComms(newH[0], newH[1], value[])
+
+  newH[0] = newH[0].bandesnatchSubtract(old[0])
+  poly[2*(index mod 128)] = newH[0]
+  diff = ipaCommitToPoly(poly)
+  poly[2*(index mod 128)] = FrZero
+  c.banderwagonAddPoint(diff)
+
+  newH[1] = newH[1].bandesnatchSubtract(old[1])
+  poly[2*(index mod 128)+1] = newH[1]
+  diff = ipaCommitToPoly(poly)
+  c.banderwagonAddPoint(diff)
+
+
+
+proc updateC(vn: ValuesNode, cxIndex: int, newC: Field, oldC: Field) =
+  # Calculate the Fr-delta.
+  let deltaC = newC.bandesnatchSubtract(oldC)
+
+  # Calculate the Point-delta.
+  var poly: array[NodeWidth, Field]
+  poly[cxIndex] = deltaC
+
+  # Add delta to the current commitment.
+  let diff = ipaCommitToPoly(poly)
+  vn.commitment.banderwagonAddPoint(diff)
+
+
+
+proc updateCommitment*(vn: ValuesNode, index: byte, newValue: ref Bytes32) =
+  if (vn.values[index] == nil and newValue == nil) or
+     (vn.values[index] != nil and newValue != nil and vn.values[index][] == newValue[]):
+    return
+
+  var frs: array[2, Field]
+  if index < NodeWidth div 2:
+    var oldC1 = vn.c1
+    vn.updateCn(index, newValue, vn.c1)
+
+    # Batch the Fr transformation of the new and old CX.
+    banderwagonMultiMapToScalarField2([addr frs[0], addr frs[1]], [vn.c1, oldC1])
+
+    # If index is in the first NodeWidth/2 elements, we need to update C1. Otherwise, C2.
+    let cxIndex = 2 + int(index) div (NodeWidth div 2) # [1, stem, -> C1, C2 <-]
+    vn.updateC(cxIndex, frs[0], frs[1])
+
+  else:
+    var oldC2 = vn.c2
+    vn.updateCn(index, newValue, vn.c2)
+
+    # Batch the Fr transformation of the new and old CX.
+    banderwagonMultiMapToScalarField2([addr frs[0], addr frs[1]], [vn.c2, oldC2])
+
+    # If index is in the first NodeWidth/2 elements, we need to update C1. Otherwise, C2.
+    let cxIndex = 2 + int(index) div (NodeWidth div 2) # [1, stem, -> C1, C2 <-]
+    vn.updateC(cxIndex, frs[0], frs[1])
+
 
 
 proc snapshotChildCommitment*(node: BranchesNode, childIndex: byte) =
@@ -68,6 +217,7 @@ proc snapshotChildCommitment*(node: BranchesNode, childIndex: byte) =
     node.commitmentsSnapshot = new Table[byte, Point]
   let childCommitment = node.branches[childIndex].?commitment ?: IdentityPoint
   discard node.commitmentsSnapshot.hasKeyOrPut(childIndex, childCommitment)
+
 
 
 proc updateAllCommitments*(tree: BranchesNode) =
@@ -97,11 +247,11 @@ proc updateAllCommitments*(tree: BranchesNode) =
         childIndexes.add(index)
     
     var frs = newSeq[Field](points.len)
-    BanderwagonMultiMapToScalarField(frs, points)
+    banderwagonMultiMapToScalarField(frs, points)
 
     var deltas = newSeq[Field]()
     for pair in frs.distribute(int(frs.len / 2)):
-      deltas.add(BandesnatchSubtract(pair[1], pair[0]))
+      deltas.add(bandesnatchSubtract(pair[1], pair[0]))
 
     var deltasIdx, childIndexesIdx = 0
     for node in nodes:
@@ -111,7 +261,7 @@ proc updateAllCommitments*(tree: BranchesNode) =
         inc(childIndexesIdx)
         inc(deltasIdx)
       node.commitmentsSnapshot = nil
-      node.commitment.BanderwagonAddPoint(IpaCommitToPoly(poly))
+      node.commitment.banderwagonAddPoint(ipaCommitToPoly(poly))
 
 
 #[
