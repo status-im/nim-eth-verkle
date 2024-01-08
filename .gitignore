@@ -4,3 +4,4 @@ htmldocs/
 bin/*
 testResults/*
 build/
+.DS_Store

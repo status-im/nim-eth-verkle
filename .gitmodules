@@ -4,3 +4,6 @@
 [submodule "compatibility/go-verkle"]
 	path = compatibility/go-verkle
 	url = https://github.com/daniellm/go-verkle
+[submodule "constantine"]
+	path = constantine
+	url = https://github.com/mratsim/constantine

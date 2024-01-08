@@ -12,54 +12,80 @@
 import
   std/[tables, sequtils],
   elvis,
-  ./tree
+  ./tree,
+  ../../constantine/constantine/hashes,
+  ../../constantine/constantine/serialization/[io_limbs, codecs_banderwagon, codecs],
+  ../../constantine/constantine/platforms/primitives,
+  ../../constantine/constantine/curves_primitives,
+  ../../constantine/constantine/math/elliptic/ec_twistededwards_projective,
+  ../../constantine/constantine/math/arithmetic,
+  ../../constantine/constantine/math/config/[type_ff, curves],
+  ../../constantine/constantine/math/io/[io_bigints, io_fields, io_ec, io_extfields],
+  ../../constantine/constantine/math/extension_fields,
+  ../../constantine/constantine/ethereum_verkle_primitives,
+  ../../constantine/constantine/ethereum_verkle_trees
 
 {.push warning[DotLikeOps]: off.}
 
 
 # Todo: Initialize to montgomery X=0, Y=1, Z=1
-const IdentityPoint = Point()
+var IdentityPoint: Point
+IdentityPoint.x.setZero()
+IdentityPoint.y.setOne()
+IdentityPoint.z.setOne()
+
+var ipaConfig: IPASettings
+var ipaTranscript: IpaTranscript[sha256, 32]
+discard ipaConfig.genIPAConfig(ipaTranscript)
+
+var testGeneratedPoints: array[256, EC_P]
+testGeneratedPoints.generate_random_points(ipaTranscript, 256)
 
 
 # Todo: implement; this is a mock
 proc banderwagonMultiMapToScalarField(fields: var openArray[Field], points: openArray[Point]) =
-  for i in 0..<points.len:
-    fields[i] = points[i].X
+  fields.batchMapToScalarField(points)
 
 
 # Todo: implement; this is a mock
 proc banderwagonMultiMapToScalarField2(fields: openArray[ptr Field], points: openArray[Point]) =
-  for i in 0..<points.len:
-    fields[i][] = points[i].X
+  var correctFields: seq[Fr[Banderwagon]] = @[]
+  for field in fields:
+    correctFields.add(Fr[Banderwagon](field[]))  # Assuming Fr[Banderwagon] can be initialized from a Field
+  correctFields.batchMapToScalarField(points)
 
 
 # Todo: implement; this is a mock
 proc banderwagonAddPoint(dst: var Point, src: Point) =
-  dst.X[0] += src.X[0]
+  dst.sum(dst, src)
 
 
 # Todo: implement; this is a mock
 proc bandesnatchSubtract(x, y: Field): Field =
-  [x[0] - y[0], 0, 0, 0]
+  result.diff(x, y)
 
 
 # Todo: implement
 # SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
-proc bandesnatchSetUint64(z: Field, v: uint64) =
-  discard
+proc bandesnatchSetUint64(z: var Field, v: uint64) =
+  z.fromInt(int(v))
 
 
 # Todo: implement; this is a mock
 proc ipaCommitToPoly(poly: array[256, Field]): Point =
-  var x,y,z: Field
-  for field in poly:
-    x[0] += field[0]
-  Point(X:x, Y:y, Z:z)
+  var comm: Point
+  comm.pedersen_commit_varbasis(testGeneratedPoints, testGeneratedPoints.len, poly, poly.len)
+  return comm
+
+
+
 
 
 # Todo: implement
 proc fromLEBytes(field: var Field, data: openArray[byte]) =
-  discard
+  var temp{.noinit.}: matchingOrderBigInt(Banderwagon)
+  temp.unmarshal(data, littleEndian)
+  field.fromBig(temp)
 
 
 # leafToComms turns a leaf into two commitments of the suffix
@@ -105,8 +131,8 @@ proc initializeCommitment*(vn: ValuesNode) =
   var count = fillSuffixTreePoly(c1poly, vn.values[0..<128])
   let containsEmptyCodeHash =
     len(c1poly) >= EmptyCodeHashSecondHalfIdx and
-    c1poly[EmptyCodeHashFirstHalfIdx] == EmptyCodeHashFirstHalfValue and
-    c1poly[EmptyCodeHashSecondHalfIdx] == EmptyCodeHashSecondHalfValue
+    (c1poly[EmptyCodeHashFirstHalfIdx] == EmptyCodeHashFirstHalfValue).bool() and
+    (c1poly[EmptyCodeHashSecondHalfIdx] == EmptyCodeHashSecondHalfValue).bool()
   if containsEmptyCodeHash:
     # Clear out values of the cached point.
     c1poly[EmptyCodeHashFirstHalfIdx] = FrZero
@@ -207,7 +233,7 @@ proc snapshotChildCommitment*(node: BranchesNode, childIndex: byte) =
   ## This is done so that we can later compute the delta between the child's
   ## current commitment and updated commitment. That delta will be used to
   ## update the parent `node`'s own commitment.
-  if node.commitmentsSnapshot == nil:
+  if node.commitmentsSnapshot.isNil:
     node.commitmentsSnapshot = new Table[byte, Point]
   let childCommitment = node.branches[childIndex].?commitment ?: IdentityPoint
   discard node.commitmentsSnapshot.hasKeyOrPut(childIndex, childCommitment)
@@ -217,13 +243,13 @@ proc snapshotChildCommitment*(node: BranchesNode, childIndex: byte) =
 proc updateAllCommitments*(tree: BranchesNode) =
   ## Updates the commitments of all modified nodes in the tree, bottom-up.
 
-  if tree.commitmentsSnapshot == nil:
+  if tree.commitmentsSnapshot.isNil:
     return
 
   var levels: array[31, seq[BranchesNode]]
   levels[0].add(tree)
   for node, depth, _ in tree.enumerateModifiedTree():
-    if node of BranchesNode and node.BranchesNode.commitmentsSnapshot != nil:
+    if node of BranchesNode and (not node.BranchesNode.commitmentsSnapshot.isNil):
       levels[depth].add(node.BranchesNode)
 
   for depth in countdown(30, 0):
@@ -233,6 +259,7 @@ proc updateAllCommitments*(tree: BranchesNode) =
 
     var points: seq[Point]
     var childIndexes: seq[byte]
+    echo nodes
 
     for node in nodes:
       for index, commitment in node.commitmentsSnapshot:
@@ -255,7 +282,9 @@ proc updateAllCommitments*(tree: BranchesNode) =
         inc(childIndexesIdx)
         inc(deltasIdx)
       node.commitmentsSnapshot = nil
-      node.commitment.banderwagonAddPoint(ipaCommitToPoly(poly))
+      let diff = ipaCommitToPoly(poly)
+      echo diff.toHex()
+      node.commitment.banderwagonAddPoint(diff)
 
 
 #[
