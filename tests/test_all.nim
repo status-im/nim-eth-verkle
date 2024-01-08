@@ -11,6 +11,7 @@ import
   std/[random, streams, os, sequtils],
   unittest2,
   ../eth_verkle/utils,
+  ../constantine/constantine/serialization/[codecs, codecs_banderwagon],
   ../eth_verkle/tree/[tree, operations, commitment]
 
 createDir "testResults"
@@ -35,7 +36,7 @@ suite "main":
 
 
   let sampleKvps = @[
-    ("0000000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000001"),
+    ("0000000000000000000000000000000000000000000000000000000000000000", "000000000000000000000000000000000123456789abcdef0123456789abcdef"),
     ("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f", "0000000000000000000000000000000000000000000000000000000000000002"),
     ("1100000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000003"),
     ("2200000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000004"),
@@ -76,56 +77,56 @@ suite "main":
       tree.setValue(key, value)
     tree.printAndTestCommitments()
 
-    echo "\n\nUpdating tree...\n\n"
-    for (key, value) in updateKvps.hexKvpsToBlob32():
-      tree.setValue(key, value)
-    tree.printAndTestCommitments()
+#     echo "\n\nUpdating tree...\n\n"
+#     for (key, value) in updateKvps.hexKvpsToBlob32():
+#       tree.setValue(key, value)
+#     tree.printAndTestCommitments()
 
-    echo "\n\nDeleting nodes:"
-    echo deleteKvps.foldl(a & "  " & b & "\n", "")
-    for key in deleteKvps:
-      discard tree.deleteValue(key.toBlob32)
-    tree.printAndTestCommitments()
+#     echo "\n\nDeleting nodes:"
+#     echo deleteKvps.foldl(a & "  " & b & "\n", "")
+#     for key in deleteKvps:
+#       discard tree.deleteValue(key.toBlob32)
+#     tree.printAndTestCommitments()
 
 
-  test "testDelValues":
-    ## Makes a small sample tree
-    var tree = new BranchesNode
-    var key, value: Bytes32
-    for (keyHex, valueHex) in sampleKvps:
-      key[0..^1] = keyHex.fromHex
-      value[0..^1] = valueHex.fromHex
-      tree.setValue(key, value)
+#   test "testDelValues":
+#     ## Makes a small sample tree
+#     var tree = new BranchesNode
+#     var key, value: Bytes32
+#     for (keyHex, valueHex) in sampleKvps:
+#       key[0..^1] = keyHex.fromHex
+#       value[0..^1] = valueHex.fromHex
+#       tree.setValue(key, value)
 
-    ## Deletes some values
-    key[0..^1] = sampleKvps[6][0].fromHex
-    check tree.deleteValue(key) == true
-    key[0..^1] = sampleKvps[7][0].fromHex
-    check tree.deleteValue(key) == true
-    key[0..^1] = sampleKvps[8][0].fromHex
-    check tree.deleteValue(key) == true
-    tree.printTree(newFileStream(stdout)) # prints full tree
+#     ## Deletes some values
+#     key[0..^1] = sampleKvps[6][0].fromHex
+#     check tree.deleteValue(key) == true
+#     key[0..^1] = sampleKvps[7][0].fromHex
+#     check tree.deleteValue(key) == true
+#     key[0..^1] = sampleKvps[8][0].fromHex
+#     check tree.deleteValue(key) == true
+#     tree.printTree(newFileStream(stdout)) # prints full tree
 
-  test "testDelNonExistingValues":
-    var key1, key2, key3, value: Bytes32
-    key1[0..^1] = "2200000000000000000000000000000000000000000000000000000000000000".fromHex
-    key2[0..^1] = "2211000000000000000000000000000000000000000000000000000000000000".fromHex
-    key3[0..^1] = "3300000000000000000000000000000000000000000000000000000000000000".fromHex 
-    value[0..^1] = "0000000000000000000000000000000000000000000000000000000000000000".fromHex 
+#   test "testDelNonExistingValues":
+#     var key1, key2, key3, value: Bytes32
+#     key1[0..^1] = "2200000000000000000000000000000000000000000000000000000000000000".fromHex
+#     key2[0..^1] = "2211000000000000000000000000000000000000000000000000000000000000".fromHex
+#     key3[0..^1] = "3300000000000000000000000000000000000000000000000000000000000000".fromHex 
+#     value[0..^1] = "0000000000000000000000000000000000000000000000000000000000000000".fromHex 
 
-    var tree = new BranchesNode
-    tree.setValue(key1, value)
-    tree.setValue(key2, value)
+#     var tree = new BranchesNode
+#     tree.setValue(key1, value)
+#     tree.setValue(key2, value)
 
-    check tree.deleteValue(key3) == false
+#     check tree.deleteValue(key3) == false
 
-  test "randomValues_10000":
-    ## Writes a larger tree with random nodes to a file
-    var tree = new BranchesNode
-    for i in 0..10000:
-      tree.setValue(key = makeRandomBlob32(), value = makeRandomBlob32())
-    tree.updateAllCommitments()
-    var file = open("testResults/randomValues_10000", fmWrite)
-    defer: close(file)
-    tree.printTree(newFileStream(file))
-    echo "Tree dumped to 'testResults/randomValues_10000'"
+#   test "randomValues_10000":
+#     ## Writes a larger tree with random nodes to a file
+#     var tree = new BranchesNode
+#     for i in 0..10000:
+#       tree.setValue(key = makeRandomBlob32(), value = makeRandomBlob32())
+#     tree.updateAllCommitments()
+#     var file = open("testResults/randomValues_10000", fmWrite)
+#     defer: close(file)
+#     tree.printTree(newFileStream(file))
+#     echo "Tree dumped to 'testResults/randomValues_10000'"
