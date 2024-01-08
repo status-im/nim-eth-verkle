@@ -66,19 +66,6 @@ proc writeAsHex*(stream: Stream, bytes: openArray[byte]) =
     stream.writeAsHex(b)
 
 
-proc toHex*(b: byte): string =
-  ## Converts a byte to a two-characters hex string
-  result.add(bitsToHex(b shr 4))
-  result.add(bitsToHex(b and 0x0f))
-
-
-proc toHex*(bytes: openArray[byte]): string =
-  ## Converts a bytes array to a hex string
-  for b in bytes:
-    result.add(bitsToHex(b shr 4))
-    result.add(bitsToHex(b and 0x0f))
-
-
 proc fromHex*(s: string): seq[byte] =
   ## Converts a hex string into a bytes sequence
   if s.len mod 2 == 1:

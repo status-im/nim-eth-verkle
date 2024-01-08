@@ -10,7 +10,10 @@
 
 import
   std/[streams, tables, strformat],
-  ../utils
+  ../utils,
+  ../verkle_types/types,
+  ../../constantine/constantine/math/io/[io_bigints, io_fields, ],
+  ../../constantine/constantine/serialization/[codecs_banderwagon, codecs]
 
 
 # TODO: make sizes configurable
@@ -19,10 +22,9 @@ type
   Bytes32* = array[32, byte]
     ## A 32-bytes blob that can represent a verkle key or value
 
-  Field* = array[4, uint64]
+  Field* = EC_P_Fr
 
-  Point* = object
-    X*, Y*, Z*: Field
+  Point* = EC_P
 
   Node* = ref object of RootObj
     ## Base node type
@@ -78,7 +80,7 @@ iterator enumerateModifiedTree*(node: BranchesNode, depth: uint8 = 1):
     tuple[node: Node, depth: uint8, index: uint8] {.closure.} =
   ## Iterates over all the nodes in the tree which were modified, or had one of
   ## their descendants modified
-  if node.commitmentsSnapshot != nil:
+  if node.commitmentsSnapshot.len == 0:
     for index in node.commitmentsSnapshot.keys:
       let child = node.branches[index]
       yield (child, depth, index)
@@ -135,7 +137,9 @@ proc printTree*(node: BranchesNode, stream: Stream) =
   ## Writes all the nodes and values into the given `stream`.
   ## Outputs a line for each branch, stem and value in the tree, indented by
   ## depth, along with their commitment.
-  stream.writeLine(&"<Tree root>                                                                                                                                 Branch. Commitment: {node.commitment.X[0].byte.toHex}")
+  var arr: array[32, byte]
+  discard arr.serialize(node.commitment)
+  stream.writeLine(&"<Tree root>                                                                                                                                 Branch. Commitment: {arr.toHex()}")
   for n, depth, parentIndex in node.enumerateTree():
     for _ in 0 ..< depth.int:
       stream.write("  ")
@@ -143,12 +147,16 @@ proc printTree*(node: BranchesNode, stream: Stream) =
     if n of BranchesNode:
       for _ in depth.int .. 68:
         stream.write("  ")
-      stream.writeLine(&"Branch. Commitment: {n.commitment.X[0].byte.toHex}")
+      var arr2: array[32, byte]
+      discard arr2.serialize(n.commitment)
+      stream.writeLine(&"Branch. Commitment: {arr2.toHex()}")
     elif n of ValuesNode:
       stream.writeAsHex(n.ValuesNode.stem[depth..^1])
       for _ in 0 .. 37:
         stream.write("  ")
-      stream.writeLine(&"Leaves. Commitment: {n.commitment.X[0].byte.toHex}")
+      var arr3: array[32, byte]
+      discard arr3.serialize(n.commitment)
+      stream.writeLine(&"Leaves. Commitment: {arr3.toHex()}")
       for valueIndex, value in n.ValuesNode.values.pairs:
         if value != nil:
           stream.write("                                                                ")
