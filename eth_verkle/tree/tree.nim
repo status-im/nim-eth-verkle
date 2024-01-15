@@ -12,7 +12,6 @@ import
   std/[streams, tables, strformat],
   ../utils,
   ../verkle_types/types,
-  ../../constantine/constantine/math/io/[io_bigints, io_fields, ],
   ../../constantine/constantine/serialization/[codecs_banderwagon, codecs]
 
 
@@ -80,7 +79,7 @@ iterator enumerateModifiedTree*(node: BranchesNode, depth: uint8 = 1):
     tuple[node: Node, depth: uint8, index: uint8] {.closure.} =
   ## Iterates over all the nodes in the tree which were modified, or had one of
   ## their descendants modified
-  if node.commitmentsSnapshot.len == 0:
+  if not node.commitmentsSnapshot.isNil:
     for index in node.commitmentsSnapshot.keys:
       let child = node.branches[index]
       yield (child, depth, index)

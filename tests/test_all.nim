@@ -11,8 +11,7 @@ import
   std/[random, streams, os, sequtils],
   unittest2,
   ../eth_verkle/utils,
-  ../constantine/constantine/serialization/[codecs, codecs_banderwagon],
-  ../eth_verkle/tree/[tree, operations, commitment]
+    ../eth_verkle/tree/[tree, operations, commitment]
 
 createDir "testResults"
 
