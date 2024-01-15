@@ -15,6 +15,18 @@ import
 
 when TraceLogs: import std/strformat
 
+
+proc newValuesNode(key, value: Bytes32) : ValuesNode =
+  ## Allocates a new `ValuesNode` with a single key and value and computes its
+  ## commitment
+  var heapValue = new Bytes32
+  heapValue[] = value
+  result = new ValuesNode
+  result.stem[0..<31] = key[0..<31]
+  result.values[key[31]] = heapValue
+  result.initializeCommitment()
+
+
 proc setValue(node: ValuesNode, index: byte, value: Bytes32) =
   ## Heap-allocates the given `value` and stores it at the given `index`
   var heapValue = new Bytes32
@@ -59,6 +71,7 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
       when TraceLogs: echo &"    Found difference at depth {divergence.index}; inserting intermediate branches"
       while depth < divergence.index:
         let newBranch = new BranchesNode
+        newBranch.initializeCommitment()
         current.snapshotChildCommitment(key[depth])
         current.branches[key[depth]] = newBranch
         when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned new branch at '{key[depth].toHex}', depth {depth}, addr {cast[uint64](newBranch)}"
@@ -72,17 +85,16 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
   current.snapshotChildCommitment(key[depth])
 
   # The current branch does not contain a ValuesNode at the required offset;
-  # create one
+  # create one and store the value in it, as per the key's last byte offset
   if vn == nil:
-    vn = new ValuesNode
-    vn.stem[0..<31] = key[0..<31]
-    vn.initializeCommitment()
+    vn = newValuesNode(key, value)
     current.branches[key[depth]] = vn
-    when TraceLogs: echo &"Created ValuesNode at depth {depth}, branch '{key[depth].toHex}', stem {vn.stem.toHex}"
+    when TraceLogs: echo &"Created ValuesNode at depth {depth}, branch '{key[depth].toHex}', stem {vn.stem.toHex}, with value at slot '{key[^1].toHex}'"
 
-  # Store the value in the ValuesNode, as per the key's last byte offset
-  vn.setValue(key[^1], value)
-  when TraceLogs: echo &"Added value to slot '{key[^1].toHex}'"
+  # Store the value in the existing ValuesNode, as per the key's last byte offset
+  else:
+    vn.setValue(key[^1], value)
+    when TraceLogs: echo &"Added value to slot '{key[^1].toHex}'"
 
 
 
