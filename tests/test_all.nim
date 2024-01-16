@@ -8,33 +8,15 @@
 ##  The main module. Provides some tests.
 
 import
-  std/[random, streams, os, sequtils],
+  std/[random, streams, os],
   unittest2,
-  ../eth_verkle/utils,
-    ../eth_verkle/tree/[tree, operations, commitment]
-
-createDir "testResults"
+  ../eth_verkle/[utils, math],
+  ../eth_verkle/tree/[tree, operations, commitment]
 
 suite "main":
 
-  var random = initRand(seed = 1) # fixed seed for reproducible test
 
-  proc makeRandomBlob32(): array[32, byte] =
-    result[ 0 ..<  8] = cast[array[8, byte]](random.next())
-    result[ 8 ..< 16] = cast[array[8, byte]](random.next())
-    result[16 ..< 24] = cast[array[8, byte]](random.next())
-    result[24 ..< 32] = cast[array[8, byte]](random.next())
-
-  proc toBlob32(str: string): Bytes32 =
-    result[0..^1] = str.fromHex
-
-  iterator hexKvpsToBlob32(kvps: openArray[tuple[key: string, value: string]]):
-      tuple[key: Bytes32, value: Bytes32] =
-    for (hexKey, hexValue) in kvps:
-      yield (hexKey.toBlob32, hexValue.toBlob32)
-
-
-  let sampleKvps = @[
+  const sampleKvps = @[
     ("0000000000000000000000000000000000000000000000000000000000000000", "000000000000000000000000000000000123456789abcdef0123456789abcdef"),
     ("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f", "0000000000000000000000000000000000000000000000000000000000000002"),
     ("1100000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000003"),
@@ -48,63 +30,60 @@ suite "main":
     ("5500000000000000000000000000000000000000000000000000000000000000", "000000000000000000000000000000000000000000000000000000000000000b"),
     ("5500000000000000000000000000000000000000000000000000000000001100", "000000000000000000000000000000000000000000000000000000000000000c"),
   ]
+  const expectedRootCommitment1 = "38dc58e5094e2447c12755c878e28b0b2bf74c8d7a80a2d7351dd1bdc01a16f4"
+    ## Matches go-verkle commitment
+
+
   let updateKvps = @[
     ("0000000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000011"),
     ("1100000000000000000000000000000000000000000000000000000000010000", "0000000000000000000000000000000000000000000000000000000000000012"),
     ("4400000011000000000000000000000000000000000000000000000000000001", "0000000000000000000000000000000000000000000000000000000000000013"),
   ]
+  const expectedRootCommitment2 = "59664c8b5d0b5230b587fe6a826e1e946c5467dbecf156edee9fe7fb9da6423a"
+    ## Matches go-verkle commitment
+
+
   let deleteKvps = @[
     "1100000000000000000000000000000000000000000000000000000000010000",
     "2211000000000000000000000000000000000000000000000000000000000000",
     "5500000000000000000000000000000000000000000000000000000000001100"
   ]
+  const expectedRootCommitment3 = "1b0b20e55d30cbd3538f98a194d955aa74b77342196046e70d68f458a7f6d084"
+    ## Matches go-verkle commitment
 
 
-  proc printAndTestCommitments(tree: BranchesNode) =
-    tree.updateAllCommitments()
-    #echo $tree  # print keys --> values
-    tree.printTree(newFileStream(stdout)) # prints full tree
-    var expectedCommitment = tree.enumerateValues.toSeq.foldl(a + b.value[^1], 0.byte)
-    #check tree.commitment.X[0] == expectedCommitment
+  iterator hexKvpsToBytes32(kvps: openArray[tuple[key: string, value: string]]):
+      tuple[key: Bytes32, value: Bytes32] =
+    for (hexKey, hexValue) in kvps:
+      yield (hexToBytesArray[32](hexKey), hexToBytesArray[32](hexValue))
 
 
-  test "testOnSave":
+  test "sanity":
 
-    echo "Populating tree...\n"
-    var tree = new BranchesNode
-    for (key, value) in sampleKvps.hexKvpsToBlob32():
+    # Populate tree and check root commitment
+    var tree = newBranchesNode()
+    for (key, value) in sampleKvps.hexKvpsToBytes32():
       tree.setValue(key, value)
-    tree.printAndTestCommitments()
+    tree.updateAllCommitments()
+    tree.printTree(newFileStream(stdout))
+    check tree.serializeCommitment.toHex == expectedRootCommitment1
 
-#     echo "\n\nUpdating tree...\n\n"
-#     for (key, value) in updateKvps.hexKvpsToBlob32():
-#       tree.setValue(key, value)
-#     tree.printAndTestCommitments()
+    # Update some nodes in the tree and check updated root commitment
+    for (key, value) in updateKvps.hexKvpsToBytes32():
+      tree.setValue(key, value)
+    tree.updateAllCommitments()
+    #tree.printTree(newFileStream(stdout))
+    check tree.serializeCommitment.toHex == expectedRootCommitment2
 
-#     echo "\n\nDeleting nodes:"
-#     echo deleteKvps.foldl(a & "  " & b & "\n", "")
-#     for key in deleteKvps:
-#       discard tree.deleteValue(key.toBlob32)
-#     tree.printAndTestCommitments()
+    # Delete some nodes in the tree and check updated root commitment
+    for hexKey in deleteKvps:
+      let key = hexToBytesArray[32](hexKey)
+      check tree.deleteValue(key) == true
+    tree.updateAllCommitments()
+    #tree.printTree(newFileStream(stdout))
+    #check tree.serializeCommitment.toHex == expectedRootCommitment3
+    # Note: currently fails since we don't deep-delete values like go-verkle does
 
-
-#   test "testDelValues":
-#     ## Makes a small sample tree
-#     var tree = new BranchesNode
-#     var key, value: Bytes32
-#     for (keyHex, valueHex) in sampleKvps:
-#       key[0..^1] = keyHex.fromHex
-#       value[0..^1] = valueHex.fromHex
-#       tree.setValue(key, value)
-
-#     ## Deletes some values
-#     key[0..^1] = sampleKvps[6][0].fromHex
-#     check tree.deleteValue(key) == true
-#     key[0..^1] = sampleKvps[7][0].fromHex
-#     check tree.deleteValue(key) == true
-#     key[0..^1] = sampleKvps[8][0].fromHex
-#     check tree.deleteValue(key) == true
-#     tree.printTree(newFileStream(stdout)) # prints full tree
 
 #   test "testDelNonExistingValues":
 #     var key1, key2, key3, value: Bytes32
@@ -118,6 +97,17 @@ suite "main":
 #     tree.setValue(key2, value)
 
 #     check tree.deleteValue(key3) == false
+
+  # var random = initRand(seed = 1) # fixed seed for reproducible test
+
+  # proc makeRandomBytes32(): Bytes32 =
+  #   result[ 0 ..<  8] = cast[array[8, byte]](random.next())
+  #   result[ 8 ..< 16] = cast[array[8, byte]](random.next())
+  #   result[16 ..< 24] = cast[array[8, byte]](random.next())
+  #   result[24 ..< 32] = cast[array[8, byte]](random.next())
+
+  # createDir "testResults"
+
 
 #   test "randomValues_10000":
 #     ## Writes a larger tree with random nodes to a file
