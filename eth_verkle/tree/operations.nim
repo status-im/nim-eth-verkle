@@ -9,14 +9,14 @@
 
 import
   std/[sequtils, sugar],
-  ".."/[utils, config],
+  ".."/[utils, math, config],
   ./tree,
   ./commitment
 
 when TraceLogs: import std/strformat
 
 
-proc newValuesNode(key, value: Bytes32) : ValuesNode =
+proc newValuesNode*(key, value: Bytes32) : ValuesNode =
   ## Allocates a new `ValuesNode` with a single key and value and computes its
   ## commitment
   var heapValue = new Bytes32
@@ -24,6 +24,11 @@ proc newValuesNode(key, value: Bytes32) : ValuesNode =
   result = new ValuesNode
   result.stem[0..<31] = key[0..<31]
   result.values[key[31]] = heapValue
+  result.initializeCommitment()
+
+
+proc newBranchesNode*() : BranchesNode =
+  result = new BranchesNode
   result.initializeCommitment()
 
 
@@ -70,8 +75,7 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
       when TraceLogs: echo &"    Key:  {key.toHex}"
       when TraceLogs: echo &"    Found difference at depth {divergence.index}; inserting intermediate branches"
       while depth < divergence.index:
-        let newBranch = new BranchesNode
-        newBranch.initializeCommitment()
+        let newBranch = newBranchesNode()
         current.snapshotChildCommitment(key[depth])
         current.branches[key[depth]] = newBranch
         when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned new branch at '{key[depth].toHex}', depth {depth}, addr {cast[uint64](newBranch)}"

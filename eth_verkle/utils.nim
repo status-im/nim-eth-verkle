@@ -7,10 +7,10 @@
 
 ##  This module provides a collection of utility methods
 
-import std/streams
+import std/[streams, strformat]
 
 
-proc bitsToHex*(b: byte): char =
+func bitsToHex*(b: byte): char =
   ## Converts a uint4 to a lowercase hex char
   case b
     of 0:  result = '0'
@@ -32,7 +32,7 @@ proc bitsToHex*(b: byte): char =
     else: raise newException(ValueError, "Given byte must be uint4 (0-15)")
 
 
-proc hexToBits*(c: char): byte =
+func hexToBits*(c: char): byte =
   ## Converts a hex char to a uint4
   case c
     of '0': result = 0
@@ -66,20 +66,37 @@ proc writeAsHex*(stream: Stream, bytes: openArray[byte]) =
     stream.writeAsHex(b)
 
 
-proc fromHex*(s: string): seq[byte] =
+func toHex*(bytes: openArray[byte]): string =
+  ## Converts a bytes array into a newly-allocated hex-encoded string
+  for b in bytes:
+    result.add bitsToHex(b shr 4)
+    result.add bitsToHex(b and 0x0f)
+
+
+iterator hexToBytes*(s: string): byte =
   ## Converts a hex string into a bytes sequence
   if s.len mod 2 == 1:
-    raise newException(ValueError, "Hex string size must be even")
+    raise newException(ValueError, "Hex string length must be even")
   var i=0
   while i < s.len:
     let c1 = s[i].hexToBits
     inc i
     let c2 = s[i].hexToBits
     inc i
-    result.add(c1 shl 4 or c2)
+    yield c1 shl 4 or c2
 
 
-proc firstMatchAt*[T](s: seq[T], pred: proc(x: T): bool {.closure.}):
+func hexToBytesArray*[T: static int](str: string): array[T, byte] =
+  ## Converts a hex string into a fixed-size bytes array
+  if str.len != T*2:
+    raise newException(ValueError, &"Hex string length is {str.len}; expected {T*2}")
+  var i = 0
+  for b in str.hexToBytes:
+    result[i] = b
+    inc i
+
+
+func firstMatchAt*[T](s: seq[T], pred: proc(x: T): bool {.closure.}):
                     tuple[found: bool, index: int] {.effectsOf: pred.} =
   ## Returns the index of the first element in a sequence matching the given
   ## `pred`icate, if any.
