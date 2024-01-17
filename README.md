@@ -12,15 +12,15 @@ in the Nim programming language, to be integrated into the [Nimbus project](http
 
 ## Banderwagon commitments
 
-- [ ] Implement the logic by making use of [IPA Multipoint](https://github.com/crate-crypto/ipa_multipoint) / [Banderwagon](https://github.com/crate-crypto/banderwagon) / [blst](https://github.com/supranational/blst)
+- [X] Implement the logic by making use of [IPA Multipoint](https://github.com/crate-crypto/ipa_multipoint) / [Banderwagon](https://github.com/crate-crypto/banderwagon) / [blst](https://github.com/supranational/blst)
 - [ ] Create tests focusing on the integration between the high-level Nim code and libraries, e.g. big/little endian issues
 
 
 ## Verkle tree implementation
 
 - [X] Implement the Verkle tree structure, with basic operations (e.g. adding nodes)
-- [ ] Support computation of commitments / proofs. Possibly, cache them in the tree.
-- [ ] Support tree mutation with minimal recomputation of commitments
+- [X] Support computation of commitments / proofs. Possibly, cache them in the tree.
+- [X] Support tree mutation with minimal recomputation of commitments
 - [ ] Create tests, focusing on edge cases (empty tree, sparse tree, dense tree, consistency after mutations). Possibly use fuzzing with deterministic random, as done in [rust-verkle](https://github.com/crate-crypto/rust-verkle/blob/master/verkle-trie/tests/trie_fuzzer.rs).
 - [ ] Create comparative tests between the various Verkle implementations; given an identical tree, identical commitments are expected
       The compatibility/ folder contains git submodules of other verkle implementations, extended with compatibility tests. See:
