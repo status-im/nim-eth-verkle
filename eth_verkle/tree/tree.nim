@@ -132,7 +132,7 @@ proc printTree*(node: BranchesNode, stream: Stream) =
   ## Writes all the nodes and values into the given `stream`.
   ## Outputs a line for each branch, stem and value in the tree, indented by
   ## depth, along with their commitment.
-  stream.write("<Tree root>                                                                                                                                 Branch. Commitment: ")
+  stream.write("<Tree root>                                                           Branch. Commitment: ")
   stream.writeAsHex(node.commitment.serializePoint)
   stream.writeLine()
   for n, depth, parentIndex in node.enumerateTree():
@@ -140,22 +140,20 @@ proc printTree*(node: BranchesNode, stream: Stream) =
       stream.write("  ")
     stream.writeAsHex(parentIndex.byte)
     if n of BranchesNode:
-      for _ in depth.int .. 68:
+      for _ in depth.int .. 33:
         stream.write("  ")
       stream.write("Branch. Commitment: ")
       stream.writeAsHex(n.commitment.serializePoint)
       stream.writeLine()
     elif n of ValuesNode:
       stream.writeAsHex(n.ValuesNode.stem[depth..^1])
-      for _ in 0 .. 37:
-        stream.write("  ")
-      stream.write("Leaves. Commitment: ")
+      stream.write("      Leaves. Commitment: ")
       stream.writeAsHex(n.commitment.serializePoint)
       stream.writeLine()
       for valueIndex, value in n.ValuesNode.values.pairs:
         if value != nil:
           stream.write("                                                                ")
           stream.writeAsHex(valueIndex.byte)
-          stream.write(" --> ")
+          stream.write("    Leaf.   Value:      ")
           stream.writeAsHex(value[])
-          stream.writeLine("     Leaf.")
+          stream.writeLine()
