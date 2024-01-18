@@ -132,7 +132,10 @@ proc deleteValue(node: BranchesNode, key: Bytes32, depth: int = 0):
   var child = node.branches[key[depth]]
   when TraceLogs: echo "  ".repeat(depth) & &"At branch {cast[uint64](node)}, depth {depth}, child index {key[depth].toHex}"
 
-  if child of ValuesNode:
+  if child == nil:
+    return (found: false, empty: false, values: nil)
+
+  elif child of ValuesNode:
     var vn = child.ValuesNode
     var target = vn.values[key[^1]]
     when TraceLogs: echo "  ".repeat(depth+1) & &"At ValuesNode {cast[uint64](vn)}, depth {depth+1}"

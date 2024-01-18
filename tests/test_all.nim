@@ -8,7 +8,7 @@
 ##  The main module. Provides some tests.
 
 import
-  std/[random, streams, os, strformat],
+  std/[random, streams, os, times, strformat],
   unittest2,
   ../eth_verkle/[config, utils, math],
   ../eth_verkle/tree/[tree, operations, commitment]
@@ -114,37 +114,42 @@ suite "main":
     check tree2.serializeCommitment.toHex == expectedRootCommitment3
 
 
-#   test "testDelNonExistingValues":
-#     var key1, key2, key3, value: Bytes32
-#     key1[0..^1] = "2200000000000000000000000000000000000000000000000000000000000000".fromHex
-#     key2[0..^1] = "2211000000000000000000000000000000000000000000000000000000000000".fromHex
-#     key3[0..^1] = "3300000000000000000000000000000000000000000000000000000000000000".fromHex 
-#     value[0..^1] = "0000000000000000000000000000000000000000000000000000000000000000".fromHex 
-
-#     var tree = new BranchesNode
-#     tree.setValue(key1, value)
-#     tree.setValue(key2, value)
-
-#     check tree.deleteValue(key3) == false
-
-  # var random = initRand(seed = 1) # fixed seed for reproducible test
-
-  # proc makeRandomBytes32(): Bytes32 =
-  #   result[ 0 ..<  8] = cast[array[8, byte]](random.next())
-  #   result[ 8 ..< 16] = cast[array[8, byte]](random.next())
-  #   result[16 ..< 24] = cast[array[8, byte]](random.next())
-  #   result[24 ..< 32] = cast[array[8, byte]](random.next())
-
-  # createDir "testResults"
+  test "testDelNonExistingValues":
+    var key1 = hexToBytesArray[32]("2200000000000000000000000000000000000000000000000000000000000000")
+    var key2 = hexToBytesArray[32]("2211000000000000000000000000000000000000000000000000000000000000")
+    var key3 = hexToBytesArray[32]("3300000000000000000000000000000000000000000000000000000000000000")
+    var value = hexToBytesArray[32]("0000000000000000000000000000000000000000000000000000000000000000")
+    var tree = newBranchesNode()
+    tree.setValue(key1, value)
+    tree.setValue(key2, value)
+    check tree.deleteValue(key3) == false
 
 
-#   test "randomValues_10000":
-#     ## Writes a larger tree with random nodes to a file
-#     var tree = new BranchesNode
-#     for i in 0..10000:
-#       tree.setValue(key = makeRandomBlob32(), value = makeRandomBlob32())
-#     tree.updateAllCommitments()
-#     var file = open("testResults/randomValues_10000", fmWrite)
-#     defer: close(file)
-#     tree.printTree(newFileStream(file))
-#     echo "Tree dumped to 'testResults/randomValues_10000'"
+  var random = initRand(seed = 1) # fixed seed for reproducible test
+
+  proc makeRandomBytes32(): Bytes32 =
+    result[ 0 ..<  8] = cast[array[8, byte]](random.next())
+    result[ 8 ..< 16] = cast[array[8, byte]](random.next())
+    result[16 ..< 24] = cast[array[8, byte]](random.next())
+    result[24 ..< 32] = cast[array[8, byte]](random.next())
+
+
+  test "randomValues_1000":
+    ## Writes a larger-ish tree with random nodes to a file
+    createDir "testResults"
+    var startTime = cpuTime()
+
+    var tree = newBranchesNode()
+    for i in 0..<1000:
+      tree.setValue(key = makeRandomBytes32(), value = makeRandomBytes32())
+
+    var commitmentTime = cpuTime()
+    tree.updateAllCommitments()
+    var endTime = cpuTime()
+
+    var file = open("testResults/randomValues_1000", fmWrite)
+    defer: close(file)
+    tree.printTree(newFileStream(file))
+    echo "Tree dumped to 'testResults/randomValues_1000'"
+    echo &"Time to populate tree (and compute leaf commitments): {commitmentTime - startTime:.3f} secs"
+    echo &"Time to compute root commitment: {endTime - commitmentTime:.3f} secs"
