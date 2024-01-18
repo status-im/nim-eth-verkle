@@ -8,9 +8,9 @@
 ##  The main module. Provides some tests.
 
 import
-  std/[random, streams, os],
+  std/[random, streams, os, strformat],
   unittest2,
-  ../eth_verkle/[utils, math],
+  ../eth_verkle/[config, utils, math],
   ../eth_verkle/tree/[tree, operations, commitment]
 
 suite "main":
@@ -45,11 +45,26 @@ suite "main":
 
   let deleteKvps = @[
     "1100000000000000000000000000000000000000000000000000000000010000",
-    "2211000000000000000000000000000000000000000000000000000000000000",
-    "5500000000000000000000000000000000000000000000000000000000001100"
+    "3300000000000000000000000000000000000000000000000000000000000001",
+    "5500000000000000000000000000000000000000000000000000000000000000",
+    "5500000000000000000000000000000000000000000000000000000000001100",
   ]
-  const expectedRootCommitment3 = "1b0b20e55d30cbd3538f98a194d955aa74b77342196046e70d68f458a7f6d084"
-    ## Matches go-verkle commitment
+  const expectedRootCommitment3 = "4145d957eb624cb56af3861ebe0db2e9fee2de523b19aad55acf9085eb7cd158"
+
+
+  const finalKvps = @[
+    ("0000000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000011"),
+    ("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f", "0000000000000000000000000000000000000000000000000000000000000002"),
+    ("1100000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000003"),
+    ("2200000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000004"),
+    ("2211000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000005"),
+    ("3300000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000006"),
+    ("33000000000000000000000000000000000000000000000000000000000000ff", "0000000000000000000000000000000000000000000000000000000000000008"),
+    ("4400000000000000000000000000000000000000000000000000000000000000", "0000000000000000000000000000000000000000000000000000000000000009"),
+    ("4400000011000000000000000000000000000000000000000000000000000000", "000000000000000000000000000000000000000000000000000000000000000a"),
+    ("4400000011000000000000000000000000000000000000000000000000000001", "0000000000000000000000000000000000000000000000000000000000000013"),
+  ]
+
 
 
   iterator hexKvpsToBytes32(kvps: openArray[tuple[key: string, value: string]]):
@@ -61,6 +76,7 @@ suite "main":
   test "sanity":
 
     # Populate tree and check root commitment
+    when TraceLogs: echo "\n\n\nPopulating tree\n"
     var tree = newBranchesNode()
     for (key, value) in sampleKvps.hexKvpsToBytes32():
       tree.setValue(key, value)
@@ -69,6 +85,7 @@ suite "main":
     check tree.serializeCommitment.toHex == expectedRootCommitment1
 
     # Update some nodes in the tree and check updated root commitment
+    when TraceLogs: echo "\n\n\nAdding and modfying some key/values in the tree\n"
     for (key, value) in updateKvps.hexKvpsToBytes32():
       tree.setValue(key, value)
     tree.updateAllCommitments()
@@ -76,13 +93,25 @@ suite "main":
     check tree.serializeCommitment.toHex == expectedRootCommitment2
 
     # Delete some nodes in the tree and check updated root commitment
+    when TraceLogs: echo "\n\n\nDeleting some key/values in the tree\n"
     for hexKey in deleteKvps:
+      when TraceLogs: echo &"Deleting key {hexKey}"
       let key = hexToBytesArray[32](hexKey)
       check tree.deleteValue(key) == true
     tree.updateAllCommitments()
     #tree.printTree(newFileStream(stdout))
-    #check tree.serializeCommitment.toHex == expectedRootCommitment3
-    # Note: currently fails since we don't deep-delete values like go-verkle does
+    check tree.serializeCommitment.toHex == expectedRootCommitment3
+
+    # Populate a new tree with just the values remaining in the step above;
+    # we expect the same commitment
+    when TraceLogs: echo "\n\n\nCreating new tree with final key/values from steps above, structure and commitments should match previous step\n"
+    var tree2 = newBranchesNode()
+    for (key, value) in finalKvps.hexKvpsToBytes32():
+      when TraceLogs: echo &"Adding {key.toHex} = {value.toHex}"
+      tree2.setValue(key, value)
+    tree2.updateAllCommitments()
+    #tree2.printTree(newFileStream(stdout))
+    check tree2.serializeCommitment.toHex == expectedRootCommitment3
 
 
 #   test "testDelNonExistingValues":

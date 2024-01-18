@@ -54,6 +54,11 @@ func hexToBits*(c: char): byte =
     else: raise newException(ValueError, "Character must be hexadecimal (a-f | A-F | 0-9)")
 
 
+func toHex*(b: byte): string =
+  result.add bitsToHex(b shr 4)
+  result.add bitsToHex(b and 0x0f)
+
+
 proc writeAsHex*(stream: Stream, b: byte) =
   ## Writes a byte to the stream as two hex characters
   stream.write(bitsToHex(b shr 4))

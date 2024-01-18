@@ -207,7 +207,9 @@ proc updateAllCommitments*(tree: BranchesNode) =
     for node in nodes:
       for index, commitment in node.commitmentsSnapshot:
         points.add(commitment)
-        points.add(node.branches[index].commitment)
+        if node.branches[index] != nil:
+          points.add(node.branches[index].commitment)
+        else: points.add(IdentityPoint)
         childIndexes.add(index)
 
     var frs = newSeq[Field](points.len)
