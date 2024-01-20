@@ -114,6 +114,18 @@ suite "main":
     check tree2.serializeCommitment.toHex == expectedRootCommitment3
 
 
+  test "fetchKeys":
+    var tree = newBranchesNode()
+    for (key, value) in sampleKvps.hexKvpsToBytes32():
+      tree.setValue(key, value)
+    for (key, value) in sampleKvps.hexKvpsToBytes32():
+      check tree.getValue(key)[] == value
+    var missingKey1 = hexToBytesArray[32]("abcd000000000000000000000000000000000000000000000000000000000000")
+    var missingKey2 = hexToBytesArray[32]("ef01234000000000000000000000000000000000000000000000000000000000")
+    check tree.getValue(missingKey1) == nil
+    check tree.getValue(missingKey2) == nil
+
+
   test "testDelNonExistingValues":
     var key1 = hexToBytesArray[32]("2200000000000000000000000000000000000000000000000000000000000000")
     var key2 = hexToBytesArray[32]("2211000000000000000000000000000000000000000000000000000000000000")

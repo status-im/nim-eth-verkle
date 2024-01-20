@@ -95,6 +95,23 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
 
 
 
+proc getValue*(node: BranchesNode, key: Bytes32): ref Bytes32 =
+  ## Retrieves a value given a key. Returns nil if not found.
+  var current = node
+  var depth = 0
+
+  # Walk down the tree till the branch closest to the key
+  while current.branches[key[depth]] of BranchesNode:
+    current = current.branches[key[depth]].BranchesNode
+    inc(depth)
+
+  var vn = current.branches[key[depth]].ValuesNode
+  if vn != nil and vn.values[key[^1]] != nil:
+    return vn.values[key[^1]]
+  else: return nil
+
+
+
 proc deleteValue(node: BranchesNode, key: Bytes32, depth: int = 0):
     tuple[found: bool, empty: bool, values: ValuesNode] =
   ## Deletes the value associated with the given `key` from the tree, and prunes
