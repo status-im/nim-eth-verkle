@@ -253,9 +253,7 @@ suite "Tree Deletion Tests":
     tree.setValue(key3, fourtyKeyTest)
     tree.updateAllCommitments()
     
-    echo tree.deleteValue(key2) # should return false, but returning true
-
-    #doAssert (not tree.deleteValue(key2)), "errored during the deletion of non-existing key"
+    doAssert (not tree.deleteValue(key2)), "errored during the deletion of non-existing key"
 
 
   
