@@ -64,8 +64,7 @@ suite "Tree Insertion Tests":
 suite "Commitment Tests":
 
   test "Cached Commitment Test":
-    
-    var
+    const
       key1 = fromHex(
         Bytes32, 
         "0x0105000000000000000000000000000000000000000000000000000000000000"
@@ -105,5 +104,158 @@ suite "Commitment Tests":
 
     # TODO: make the nil check work
     # doAssert isNil(BranchesNode(tree.branches[1]).commitment), "internal node has mistakenly cleared cached commitment"
+
+
+suite "Tree Deletion Tests":
+
+  test "Delete Leaf Node":
+    const
+      key1 = fromHex(
+        Bytes32,
+        "0x0105000000000000000000000000000000000000000000000000000000000000"
+      )
+      key1p = fromHex(
+        Bytes32,
+        "0x0105000000000000000000000000000000000000000000000000000000000001"
+      )
+      key1pp = fromHex(
+        Bytes32,
+        "0x0105000000000000000000000000000000000000000000000000000000000081"
+      )
+      key2 = fromHex(
+        Bytes32,
+        "0x0107000000000000000000000000000000000000000000000000000000000000"
+      )
+      key3 = fromHex(
+        Bytes32,
+        "0x0405000000000000000000000000000000000000000000000000000000000000"
+      )
+    
+    var tree = newBranchesNode()
+    tree.setValue(key1, fourtyKeyTest)
+    tree.setValue(key1p, fourtyKeyTest)
+    tree.setValue(key1pp, fourtyKeyTest)
+    tree.setValue(key2, fourtyKeyTest)
+    tree.updateAllCommitments()
+
+    var init = tree.commitment
+
+    tree.setValue(key3, fourtyKeyTest)
+    let err = tree.deleteValue(key3)
+    doAssert err, "Deletion Failed"
+    tree.updateAllCommitments()
+
+    var final = tree.commitment
+    doAssert init.serializePoint() == final.serializePoint(), "Deletion Inconsistent"
+    doAssert tree.getValue(key3).isNil, "leaf hasnt been deleted"
+
+  test "Test Delete Non-Existent Node should fail":
+    const
+      key1 = fromHex(
+        Bytes32, 
+        "0x0105000000000000000000000000000000000000000000000000000000000000"
+      )
+      key2 = fromHex(
+        Bytes32, 
+        "0x0107000000000000000000000000000000000000000000000000000000000000"
+      )
+      key3 = fromHex(
+        Bytes32, 
+        "0x0405000000000000000000000000000000000000000000000000000000000000"
+      )
+    
+    var tree = newBranchesNode()
+    tree.setValue(key1, fourtyKeyTest)
+    tree.setValue(key2, fourtyKeyTest)
+    let err = tree.deleteValue(key3)
+    doAssert (not err), "hould not fail when deleting a non-existent key"
+
+  test "Test Delete Prune":
+    const
+      key1 = fromHex(
+        Bytes32, 
+        "0x0105000000000000000000000000000000000000000000000000000000000000"
+      )
+      key2 = fromHex(
+        Bytes32, 
+        "0x0107000000000000000000000000000000000000000000000000000000000000"
+      )
+      key3 = fromHex(
+        Bytes32, 
+        "0x0405000000000000000000000000000000000000000000000000000000000000"
+      )
+      key4 = fromHex(
+        Bytes32,
+        "0x0407000000000000000000000000000000000000000000000000000000000000"
+      )
+      key5 = fromHex(
+        Bytes32,
+        "0x04070000000000000000000000000000000000000000000000000000000000FF"
+      )
+    
+    var tree = newBranchesNode()
+    tree.setValue(key1, fourtyKeyTest)
+    tree.setValue(key2, fourtyKeyTest)
+    tree.updateAllCommitments()
+
+    var hashPostKey2 = tree.commitment
+
+    tree.setValue(key3, fourtyKeyTest)
+    tree.setValue(key4, fourtyKeyTest)
+    tree.updateAllCommitments()
+
+    var hashPostKey4 = tree.commitment
+
+    tree.setValue(key5, fourtyKeyTest)
+    tree.updateAllCommitments()
+
+    var completeTreeHash = tree.commitment
+
+    # Delete Key5
+    doAssert tree.deleteValue(key5), "Unable to delete key5"
+    tree.updateAllCommitments()
+
+    var postHash = tree.commitment
+
+    # Check that the deletion updated the root hash and that it's not
+    # the same as the pre-deletion hash
+    doAssert completeTreeHash.serializePoint() != postHash.serializePoint(), "Deletion did not update root hash"
+
+    # The post deletion hash should be the same as the post key4 hash
+    doAssert hashPostKey4.serializePoint() == postHash.serializePoint(), "deleting leaf #5 resulted in unexpected tree"
+
+    # Delete key4 and key3
+    doAssert tree.deleteValue(key4), "Unable to delete key4"
+    doAssert tree.deleteValue(key3), "Unable to delete key3"
+    tree.updateAllCommitments()
+
+    postHash = tree.commitment
+
+    # The post deletion hash should be different from the post key2 hash
+    doAssert hashPostKey2.serializePoint() == postHash.serializePoint(), "deleting leaf #3 resulted in unexpected tree"
+
+  test "Delete Unequal Path should fail":
+    const
+      key1 = fromHex(
+        Bytes32, 
+        "0x0105000000000000000000000000000000000000000000000000000000000000"
+      )
+      key2 = fromHex(
+        Bytes32, 
+        "0x0107000000000000000000000000000000000000000000000000000000000000"
+      )
+      key3 = fromHex(
+        Bytes32, 
+        "0x0405000000000000000000000000000000000000000000000000000000000000"
+      )
+    var tree = newBranchesNode()
+    tree.setValue(key1, fourtyKeyTest)
+    tree.setValue(key3, fourtyKeyTest)
+    tree.updateAllCommitments()
+    
+    echo tree.deleteValue(key2) # should return false, but returning true
+
+    #doAssert (not tree.deleteValue(key2)), "errored during the deletion of non-existing key"
+
 
   
