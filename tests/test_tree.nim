@@ -14,30 +14,30 @@ import
   ../constantine/constantine/serialization/codecs
 
 const
-    testValue = fromHex(
-        Bytes32, 
-        "0x0123456789abcdef0123456789abcdef"
-    )
-    zeroKeyTest = fromHex(
-        Bytes32, 
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
-    )
-    oneKeyTest = fromHex(
-        Bytes32, 
-        "0x0000000000000000000000000000000000000000000000000000000000000001"
-    )
-    # forkOneKeyTest = fromHex(
-    #     Bytes32, 
-    #     "0x0001000000000000000000000000000000000000000000000000000000000001"
-    # )
-    fourtyKeyTest = fromHex(
-        Bytes32, 
-        "0x4000000000000000000000000000000000000000000000000000000000000000"
-    )
-    ffx32KeyTest = fromHex(
-        Bytes32, 
-        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    )
+  testValue = fromHex(
+    Bytes32, 
+    "0x0123456789abcdef0123456789abcdef"
+  )
+  zeroKeyTest = fromHex(
+    Bytes32, 
+    "0x0000000000000000000000000000000000000000000000000000000000000000"
+  )
+  oneKeyTest = fromHex(
+    Bytes32, 
+    "0x0000000000000000000000000000000000000000000000000000000000000001"
+  )
+  # forkOneKeyTest = fromHex(
+  #     Bytes32, 
+  #     "0x0001000000000000000000000000000000000000000000000000000000000001"
+  # )
+  fourtyKeyTest = fromHex(
+    Bytes32, 
+    "0x4000000000000000000000000000000000000000000000000000000000000000"
+  )
+  ffx32KeyTest = fromHex(
+    Bytes32, 
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  )
 
 
 suite "Tree Insertion Tests":
@@ -66,10 +66,22 @@ suite "Commitment Tests":
   test "Cached Commitment Test":
     
     var
-      key1: Bytes32 = fromHex(Bytes32, "0x0105000000000000000000000000000000000000000000000000000000000000")
-      key2: Bytes32 = fromHex(Bytes32, "0x0107000000000000000000000000000000000000000000000000000000000000")
-      key3: Bytes32 = fromHex(Bytes32, "0x0405000000000000000000000000000000000000000000000000000000000000")
-      key4: Bytes32 = fromHex(Bytes32, "0x0407000000000000000000000000000000000000000000000000000000000000")
+      key1 = fromHex(
+        Bytes32, 
+        "0x0105000000000000000000000000000000000000000000000000000000000000"
+      )
+      key2 = fromHex(
+        Bytes32, 
+        "0x0107000000000000000000000000000000000000000000000000000000000000"
+      )
+      key3 = fromHex(
+        Bytes32, 
+        "0x0405000000000000000000000000000000000000000000000000000000000000"
+      )
+      key4 = fromHex(
+        Bytes32, 
+        "0x0407000000000000000000000000000000000000000000000000000000000000"
+      )
 
     var tree = newBranchesNode()
 
