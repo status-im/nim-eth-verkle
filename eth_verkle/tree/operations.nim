@@ -106,7 +106,7 @@ proc getValue*(node: BranchesNode, key: Bytes32): ref Bytes32 =
     inc(depth)
 
   var vn = current.branches[key[depth]].ValuesNode
-  if vn != nil and vn.values[key[^1]] != nil:
+  if vn != nil and vn.stem == key[0..30] and vn.values[key[^1]] != nil:
     return vn.values[key[^1]]
   else: return nil
 

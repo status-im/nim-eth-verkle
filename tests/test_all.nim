@@ -122,8 +122,10 @@ suite "main":
       check tree.getValue(key)[] == value
     var missingKey1 = hexToBytesArray[32]("abcd000000000000000000000000000000000000000000000000000000000000")
     var missingKey2 = hexToBytesArray[32]("ef01234000000000000000000000000000000000000000000000000000000000")
+    var missingKey3 = hexToBytesArray[32]("0000110000000000000000000000000000000000000000000000000000000000")
     check tree.getValue(missingKey1) == nil
     check tree.getValue(missingKey2) == nil
+    check tree.getValue(missingKey3) == nil
 
 
   test "testDelNonExistingValues":
