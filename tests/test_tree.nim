@@ -5,7 +5,6 @@
 #     * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-##  The main module. Provides some tests.
 
 import
   unittest,
@@ -13,6 +12,7 @@ import
   ../eth_verkle/tree/[tree, operations, commitment],
   ../constantine/constantine/serialization/codecs
 
+## Values to be used for testing
 const
   testValue = fromHex(
     Bytes32, 
@@ -39,14 +39,21 @@ const
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
   )
 
-
+## ################################################################
+##
+##             Tests for Tree Insertion Correctness
+##
+## ################################################################
 suite "Tree Insertion Tests":
-
+  ## Tests if the Insertion into the root not
+  ## is taking place at the expected position
   test "Insertion Into Root":
     var tree = newBranchesNode()
     tree.setValue(zeroKeyTest, testValue)
     check testValue == ((ValuesNode)tree.branches[0]).values[zeroKeyTest[31]][]
 
+  ## Tests if the insertion of two leafs
+  ## into the root is taking place at the expected position
   test "Insert Two Leaves":
     var tree = newBranchesNode()
     tree.setValue(zeroKeyTest, testValue)
@@ -54,6 +61,8 @@ suite "Tree Insertion Tests":
     check testValue == ((ValuesNode)tree.branches[0]).values[zeroKeyTest[31]][]
     check testValue == ((ValuesNode)tree.branches[255]).values[255][]
 
+  ## Tests if the insertion of leafs
+  ## into the last level is taking place at the expected position
   test "Insert Two Leaves Last Level":
     var tree = newBranchesNode()
     tree.setValue(zeroKeyTest, testValue)
@@ -61,8 +70,17 @@ suite "Tree Insertion Tests":
     check testValue == ((ValuesNode)tree.branches[0]).values[1][]
     check testValue == ((ValuesNode)tree.branches[0]).values[0][]
 
+## ################################################################
+##
+##             Tests for Correct Commitment Updation
+##
+## ################################################################
 suite "Commitment Tests":
-
+  ## Tests to check is the commitment is updated
+  ## after the insertion of a leaf
+  ## and also to checks if caching of commitment is 
+  ## working as expected
+  ## TODO: make the nil check work 
   test "Cached Commitment Test":
     const
       key1 = fromHex(
@@ -102,12 +120,19 @@ suite "Commitment Tests":
     doAssert oldRoot.serializePoint() != newRoot.serializePoint(), "root has stale commitment"
     doAssert oldInternal.serializePoint() != newInternal.serializePoint(), "internal node has stale commitment"
 
-    # TODO: make the nil check work
-    # doAssert isNil(BranchesNode(tree.branches[1]).commitment), "internal node has mistakenly cleared cached commitment"
+    ## TODO: Perform the not nil check
+    ## currently the not nil check have been checked manually by printing the values
+    # doAssert BranchesNode(tree.branches[1]).commitment != nil, "internal node has mistakenly cleared cached commitment"
 
-
+## ################################################################
+##
+##               Tests for Deletion in Tree
+##
+## ################################################################
 suite "Tree Deletion Tests":
-
+  ## Tests if the deletion of a leaf is taking place
+  ## correctly with proper removal of the leaf
+  ## and updation of the commitment
   test "Delete Leaf Node":
     const
       key1 = fromHex(
@@ -150,6 +175,9 @@ suite "Tree Deletion Tests":
     doAssert tree.getValue(key3).isNil, "leaf hasnt been deleted"
 
   test "Test Delete Non-Existent Node should fail":
+    ## Tests if the deletion of a non-existent leaf is taking place
+    ## this test should fail, as the deletion of a non-existent leaf
+    ## should not be allowed
     const
       key1 = fromHex(
         Bytes32, 
@@ -171,6 +199,8 @@ suite "Tree Deletion Tests":
     doAssert (not err), "hould not fail when deleting a non-existent key"
 
   test "Test Delete Prune":
+    ## Tests if the deletion of a leaf is taking place
+    ## correctly with proper pruning of the data and commitment
     const
       key1 = fromHex(
         Bytes32, 
@@ -235,6 +265,8 @@ suite "Tree Deletion Tests":
     doAssert hashPostKey2.serializePoint() == postHash.serializePoint(), "deleting leaf #3 resulted in unexpected tree"
 
   test "Delete Unequal Path should fail":
+    ## Test if deletion of unequal path is taking place
+    ## for keys having similar path starting from the root
     const
       key1 = fromHex(
         Bytes32, 
