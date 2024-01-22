@@ -29,6 +29,9 @@ proc run(args, path: string) =
   if (NimMajor, NimMinor) > (1, 6):
     build args & " --mm:refc -r", path
 
-task test, "Run all tests":
+task testAll, "Run all tests":
   for threads in ["--threads:off", "--threads:on"]:
     run threads, "tests/test_all"
+
+task testTree, "Run Tree Tests":
+  run "", "tests/test_tree"

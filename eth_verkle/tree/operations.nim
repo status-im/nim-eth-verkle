@@ -106,7 +106,7 @@ proc getValue*(node: BranchesNode, key: Bytes32): ref Bytes32 =
     inc(depth)
 
   var vn = current.branches[key[depth]].ValuesNode
-  if vn != nil and vn.values[key[^1]] != nil:
+  if vn != nil and vn.stem == key[0..30] and vn.values[key[^1]] != nil:
     return vn.values[key[^1]]
   else: return nil
 
@@ -154,6 +154,8 @@ proc deleteValue(node: BranchesNode, key: Bytes32, depth: int = 0):
 
   elif child of ValuesNode:
     var vn = child.ValuesNode
+    if vn.stem != key[0..30]:
+      return (found: false, empty: false, values: nil)
     var target = vn.values[key[^1]]
     when TraceLogs: echo "  ".repeat(depth+1) & &"At ValuesNode {cast[uint64](vn)}, depth {depth+1}"
     if target == nil:
