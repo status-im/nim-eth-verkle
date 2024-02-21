@@ -11,3 +11,8 @@
 const TraceLogs* {.booldefine.}: bool = false
   ## Whether to write trace-level logs to stdout.
   ## Overridable using -d:TraceLogs compile arg
+
+
+const DisableCommitments* {.booldefine.}: bool = false
+  ## Whether to not compute commitments. Used to speed up tests.
+  ## Overridable using -d:DisableCommitments compile arg

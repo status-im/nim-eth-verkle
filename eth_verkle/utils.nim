@@ -102,10 +102,10 @@ func hexToBytesArray*[T: static int](str: string): array[T, byte] =
 
 
 func firstMatchAt*[T](s: seq[T], pred: proc(x: T): bool {.closure.}):
-                    tuple[found: bool, index: int] {.effectsOf: pred.} =
+                    tuple[found: bool, index: uint] {.effectsOf: pred.} =
   ## Returns the index of the first element in a sequence matching the given
   ## `pred`icate, if any.
-  var index = 0
+  var index = 0u
   for item in s:
     if pred(item):
       return (true, index)

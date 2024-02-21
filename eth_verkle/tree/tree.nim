@@ -17,6 +17,7 @@ type
   Node* = ref object of RootObj
     ## Base node type
     commitment*: Point
+    depth*: uint8
 
   BranchesNode* = ref object of Node
     ## Internal node in the tree that holds references to 256 child nodes (or nil-s)
@@ -38,7 +39,7 @@ func serializeCommitment*(node: Node): Bytes32 =
 
 
 iterator enumerateTree*(node: BranchesNode):
-    tuple[node: Node, depth: uint8, index: uint8] =
+    tuple[node: Node, index: uint8] =
   ## Iterates over all the nodes in the tree excluding values, depth-first
 
   # In order to keep this iterator an efficient second-class citizen, we can't
@@ -62,7 +63,7 @@ iterator enumerateTree*(node: BranchesNode):
       inc(last.index)
       if child != nil:
         # If the child node is non-empty, return it
-        yield (node: child, depth: stack.len.uint8, index: (last.index-1).uint8)
+        yield (node: child, index: (last.index-1).uint8)
 
         # If the child is a BranchesNode, we push it to the stack and start
         # iterating its own children next iteration (starting from index 0)
@@ -71,16 +72,16 @@ iterator enumerateTree*(node: BranchesNode):
 
 
 
-iterator enumerateModifiedTree*(node: BranchesNode, depth: uint8 = 1):
-    tuple[node: Node, depth: uint8, index: uint8] {.closure.} =
+iterator enumerateModifiedTree*(node: BranchesNode):
+    tuple[node: Node, index: uint8] {.closure.} =
   ## Iterates over all the nodes in the tree which were modified, or had one of
   ## their descendants modified
   if not node.commitmentsSnapshot.isNil:
     for index in node.commitmentsSnapshot.keys:
       let child = node.branches[index]
-      yield (child, depth, index)
+      yield (child, index)
       if child of BranchesNode:
-        for item in enumerateModifiedTree(child.BranchesNode, depth + 1):
+        for item in enumerateModifiedTree(child.BranchesNode):
           yield item
 
 
@@ -90,7 +91,7 @@ iterator enumerateValues*(node: BranchesNode):
   ## Iterates over all the key-value pairs in the tree
   
   # Iterate over all nodes in the tree (excluding values)
-  for n, _, _ in node.enumerateTree():
+  for n, _ in node.enumerateTree():
     if n of ValuesNode:
       # When we reach a ValuesNode, iterate over all its non-nil values and
       # return them. We need to regenerate the key of each value by appending
@@ -135,18 +136,18 @@ proc printTree*(node: BranchesNode, stream: Stream) =
   stream.write("<Tree root>                                                           Branch. Commitment: ")
   stream.writeAsHex(node.commitment.serializePoint)
   stream.writeLine()
-  for n, depth, parentIndex in node.enumerateTree():
-    for _ in 0 ..< depth.int:
+  for n, parentIndex in node.enumerateTree():
+    for _ in 0 ..< n.depth.int:
       stream.write("  ")
     stream.writeAsHex(parentIndex.byte)
     if n of BranchesNode:
-      for _ in depth.int .. 33:
+      for _ in n.depth .. 33:
         stream.write("  ")
       stream.write("Branch. Commitment: ")
       stream.writeAsHex(n.commitment.serializePoint)
       stream.writeLine()
     elif n of ValuesNode:
-      stream.writeAsHex(n.ValuesNode.stem[depth..^1])
+      stream.writeAsHex(n.ValuesNode.stem[n.depth..^1])
       stream.write("      Leaves. Commitment: ")
       stream.writeAsHex(n.commitment.serializePoint)
       stream.writeLine()

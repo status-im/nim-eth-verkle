@@ -48,14 +48,14 @@ suite "Tree Insertion Tests":
   ## Tests if the Insertion into the root not
   ## is taking place at the expected position
   test "Insertion Into Root":
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(zeroKeyTest, testValue)
     check testValue == ((ValuesNode)tree.branches[0]).values[zeroKeyTest[31]][]
 
   ## Tests if the insertion of two leafs
   ## into the root is taking place at the expected position
   test "Insert Two Leaves":
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(zeroKeyTest, testValue)
     tree.setValue(ffx32KeyTest, testValue)
     check testValue == ((ValuesNode)tree.branches[0]).values[zeroKeyTest[31]][]
@@ -64,7 +64,7 @@ suite "Tree Insertion Tests":
   ## Tests if the insertion of leafs
   ## into the last level is taking place at the expected position
   test "Insert Two Leaves Last Level":
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(zeroKeyTest, testValue)
     tree.setValue(oneKeyTest, testValue)
     check testValue == ((ValuesNode)tree.branches[0]).values[1][]
@@ -100,7 +100,7 @@ suite "Commitment Tests":
         "0x0407000000000000000000000000000000000000000000000000000000000000"
       )
 
-    var tree = newBranchesNode()
+    var tree = newTree()
 
     tree.setValue(key1, fourtyKeyTest)
     tree.setValue(key2, fourtyKeyTest)
@@ -156,7 +156,7 @@ suite "Tree Deletion Tests":
         "0x0405000000000000000000000000000000000000000000000000000000000000"
       )
     
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(key1, fourtyKeyTest)
     tree.setValue(key1p, fourtyKeyTest)
     tree.setValue(key1pp, fourtyKeyTest)
@@ -192,7 +192,7 @@ suite "Tree Deletion Tests":
         "0x0405000000000000000000000000000000000000000000000000000000000000"
       )
     
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(key1, fourtyKeyTest)
     tree.setValue(key2, fourtyKeyTest)
     let err = tree.deleteValue(key3)
@@ -223,7 +223,7 @@ suite "Tree Deletion Tests":
         "0x04070000000000000000000000000000000000000000000000000000000000FF"
       )
     
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(key1, fourtyKeyTest)
     tree.setValue(key2, fourtyKeyTest)
     tree.updateAllCommitments()
@@ -280,7 +280,7 @@ suite "Tree Deletion Tests":
         Bytes32, 
         "0x0405000000000000000000000000000000000000000000000000000000000000"
       )
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(key1, fourtyKeyTest)
     tree.setValue(key3, fourtyKeyTest)
     tree.updateAllCommitments()

@@ -77,7 +77,7 @@ suite "main":
 
     # Populate tree and check root commitment
     when TraceLogs: echo "\n\n\nPopulating tree\n"
-    var tree = newBranchesNode()
+    var tree = newTree()
     for (key, value) in sampleKvps.hexKvpsToBytes32():
       tree.setValue(key, value)
     tree.updateAllCommitments()
@@ -105,7 +105,7 @@ suite "main":
     # Populate a new tree with just the values remaining in the step above;
     # we expect the same commitment
     when TraceLogs: echo "\n\n\nCreating new tree with final key/values from steps above, structure and commitments should match previous step\n"
-    var tree2 = newBranchesNode()
+    var tree2 = newTree()
     for (key, value) in finalKvps.hexKvpsToBytes32():
       when TraceLogs: echo &"Adding {key.toHex} = {value.toHex}"
       tree2.setValue(key, value)
@@ -115,7 +115,7 @@ suite "main":
 
 
   test "fetchKeys":
-    var tree = newBranchesNode()
+    var tree = newTree()
     for (key, value) in sampleKvps.hexKvpsToBytes32():
       tree.setValue(key, value)
     for (key, value) in sampleKvps.hexKvpsToBytes32():
@@ -133,7 +133,7 @@ suite "main":
     var key2 = hexToBytesArray[32]("2211000000000000000000000000000000000000000000000000000000000000")
     var key3 = hexToBytesArray[32]("3300000000000000000000000000000000000000000000000000000000000000")
     var value = hexToBytesArray[32]("0000000000000000000000000000000000000000000000000000000000000000")
-    var tree = newBranchesNode()
+    var tree = newTree()
     tree.setValue(key1, value)
     tree.setValue(key2, value)
     check tree.deleteValue(key3) == false
@@ -153,7 +153,7 @@ suite "main":
     createDir "testResults"
     var startTime = cpuTime()
 
-    var tree = newBranchesNode()
+    var tree = newTree()
     for i in 0..<1000:
       tree.setValue(key = makeRandomBytes32(), value = makeRandomBytes32())
 

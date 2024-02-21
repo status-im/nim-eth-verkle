@@ -11,8 +11,7 @@
 
 import
   std/[tables, sequtils],
-  elvis,
-  ../[utils, math],
+  ../[utils, math, config],
   ./tree
 
 {.push warning[DotLikeOps]: off.}
@@ -63,11 +62,15 @@ let EmptyCodeHashSecondHalfValue = EmptyHashCodePoly[EmptyCodeHashSecondHalfIdx]
 
 
 proc initializeCommitment*(bn: BranchesNode) =
-  bn.commitment = IdentityPoint
+  when not DisableCommitments:
+    bn.commitment = IdentityPoint
 
 
 
 proc initializeCommitment*(vn: ValuesNode) =
+  when DisableCommitments:
+    return
+
   # C1.
   var c1poly: array[256, Field]
   var count = fillSuffixTreePoly(c1poly, vn.values[0..<128])
@@ -146,6 +149,9 @@ proc updateC(vn: ValuesNode, cxIndex: int, newC: Field, oldC: Field) =
 
 
 proc updateCommitment*(vn: ValuesNode, index: byte, newValue: ref Bytes32) =
+  when DisableCommitments:
+    return
+
   if (vn.values[index] == nil and newValue == nil) or
      (vn.values[index] != nil and newValue != nil and vn.values[index][] == newValue[]):
     return
@@ -177,24 +183,33 @@ proc snapshotChildCommitment*(node: BranchesNode, childIndex: byte) =
   ## This is done so that we can later compute the delta between the child's
   ## current commitment and updated commitment. That delta will be used to
   ## update the parent `node`'s own commitment.
+  when DisableCommitments:
+    return
   if node.commitmentsSnapshot.isNil:
     node.commitmentsSnapshot = new Table[byte, Point]
-  let childCommitment = node.branches[childIndex].?commitment ?: IdentityPoint
+  let childCommitment = 
+    if node.branches[childIndex] != nil:
+      node.branches[childIndex].commitment
+    else: IdentityPoint
   discard node.commitmentsSnapshot.hasKeyOrPut(childIndex, childCommitment)
 
 
 
 proc updateAllCommitments*(tree: BranchesNode) =
+  assert tree.depth == 0 # Must be called on tree root
+
   ## Updates the commitments of all modified nodes in the tree, bottom-up.
+  when DisableCommitments:
+    return
 
   if tree.commitmentsSnapshot.isNil:
     return
 
   var levels: array[31, seq[BranchesNode]]
   levels[0].add(tree)
-  for node, depth, _ in tree.enumerateModifiedTree():
+  for node, _ in tree.enumerateModifiedTree():
     if node of BranchesNode and (not node.BranchesNode.commitmentsSnapshot.isNil):
-      levels[depth].add(node.BranchesNode)
+      levels[node.depth].add(node.BranchesNode)
 
   for depth in countdown(30, 0):
     let nodes = levels[depth]

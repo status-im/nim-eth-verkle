@@ -16,20 +16,28 @@ import
 when TraceLogs: import std/[strformat, strutils]
 
 
-proc newValuesNode*(key, value: Bytes32) : ValuesNode =
+proc newValuesNode*(key, value: Bytes32, depth: uint8) : ValuesNode =
   ## Allocates a new `ValuesNode` with a single key and value and computes its
   ## commitment
   var heapValue = new Bytes32
   heapValue[] = value
   result = new ValuesNode
+  result.depth = depth
   result.stem[0..<31] = key[0..<31]
   result.values[key[31]] = heapValue
   result.initializeCommitment()
 
 
-proc newBranchesNode*() : BranchesNode =
+proc newBranchesNode(depth: uint8) : BranchesNode =
+  ## Allocates a new `BranchesNode` with the given depth
   result = new BranchesNode
+  result.depth = depth
   result.initializeCommitment()
+
+
+proc newTree*() : BranchesNode =
+  ## Inititalizes a new empty tree
+  newBranchesNode(depth = 0)
 
 
 proc setValue(node: ValuesNode, index: byte, value: Bytes32) =
@@ -41,22 +49,22 @@ proc setValue(node: ValuesNode, index: byte, value: Bytes32) =
 
 
 proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
+  assert node.depth == 0 # Must always be done from the tree root
+
   ## Stores the given `value` in the tree at the given `key`
   var current = node
-  var depth = 0
   when TraceLogs: echo &"Setting {key.toHex} --> {value.toHex}"
 
   # Walk down the tree till the branch closest to the key
-  while current.branches[key[depth]] of BranchesNode:
-    when TraceLogs: echo &"At node {cast[uint64](current)}. Going down to branch '{key[depth].toHex}' at depth {depth}"
-    current.snapshotChildCommitment(key[depth])
-    current = current.branches[key[depth]].BranchesNode
-    inc(depth)
+  while current.branches[key[current.depth]] of BranchesNode:
+    when TraceLogs: echo &"At node {cast[uint64](current)}. Going down to branch '{key[current.depth].toHex}' at depth {current.depth}"
+    current.snapshotChildCommitment(key[current.depth])
+    current = current.branches[key[current.depth]].BranchesNode
 
   # If we reached a ValuesNode...
-  var vn = current.branches[key[depth]].ValuesNode
+  var vn = current.branches[key[current.depth]].ValuesNode
   if vn != nil:
-    when TraceLogs: echo &"At node {cast[uint64](current)}. Found ValuesNode at branch '{key[depth].toHex}', depth {depth}, addr {cast[uint64](vn)}"
+    when TraceLogs: echo &"At node {cast[uint64](current)}. Found ValuesNode at branch '{key[current.depth].toHex}', depth {current.depth}, addr {cast[uint64](vn)}"
     when TraceLogs: echo &"    Stem: {vn.stem.toHex}"
 
     # If the stem differs from the key, we can't use that ValuesNode. We need to
@@ -67,26 +75,26 @@ proc setValue*(node: BranchesNode, key: Bytes32, value: Bytes32) =
     if divergence.found:
       when TraceLogs: echo &"    Key:  {key.toHex}"
       when TraceLogs: echo &"    Found difference at depth {divergence.index}; inserting intermediate branches"
-      while depth < divergence.index:
-        let newBranch = newBranchesNode()
-        current.snapshotChildCommitment(key[depth])
-        current.branches[key[depth]] = newBranch
-        when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned new branch at '{key[depth].toHex}', depth {depth}, addr {cast[uint64](newBranch)}"
+      while current.depth < divergence.index:
+        let newBranch = newBranchesNode(current.depth + 1)
+        current.snapshotChildCommitment(key[current.depth])
+        current.branches[key[current.depth]] = newBranch
+        when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned new branch at '{key[current.depth].toHex}', depth {current.depth}, addr {cast[uint64](newBranch)}"
         current = newBranch
-        inc(depth)
-      current.snapshotChildCommitment(vn.stem[depth])
-      current.branches[vn.stem[depth]] = vn
-      when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned ValuesNode at '{vn.stem[depth].toHex}', depth {depth}, addr {cast[uint64](vn)}"
+      current.snapshotChildCommitment(vn.stem[current.depth])
+      current.branches[vn.stem[current.depth]] = vn
+      vn.depth = current.depth + 1
+      when TraceLogs: echo &"At node {cast[uint64](current)}. Assigned ValuesNode at '{vn.stem[current.depth].toHex}', depth {current.depth}, addr {cast[uint64](vn)}"
       vn = nil # We can't use it
 
-  current.snapshotChildCommitment(key[depth])
+  current.snapshotChildCommitment(key[current.depth])
 
   # The current branch does not contain a ValuesNode at the required offset;
   # create one and store the value in it, as per the key's last byte offset
   if vn == nil:
-    vn = newValuesNode(key, value)
-    current.branches[key[depth]] = vn
-    when TraceLogs: echo &"Created ValuesNode at depth {depth}, branch '{key[depth].toHex}', stem {vn.stem.toHex}, with value at slot '{key[^1].toHex}'"
+    vn = newValuesNode(key, value, current.depth + 1)
+    current.branches[key[current.depth]] = vn
+    when TraceLogs: echo &"Created ValuesNode at depth {current.depth}, branch '{key[current.depth].toHex}', stem {vn.stem.toHex}, with value at slot '{key[^1].toHex}'"
 
   # Store the value in the existing ValuesNode, as per the key's last byte offset
   else:
@@ -112,10 +120,13 @@ proc getValue*(node: BranchesNode, key: Bytes32): ref Bytes32 =
 
 
 
-proc deleteValue(node: BranchesNode, key: Bytes32, depth: int = 0):
+proc deleteValueRecursive(node: BranchesNode, key: Bytes32):
     tuple[found: bool, empty: bool, values: ValuesNode] =
   ## Deletes the value associated with the given `key` from the tree, and prunes
-  ## the tree as needed
+  ## the tree as needed. Returns `found`=true in case the key was found and
+  ## deleted. Returns `empty=true` in case the tree is now empty of data.
+  ## May return a `ValuesNode` that has been orphanated and needs to be
+  ## reattached to a higher up parent.
 
   #[
     Algorithm:
@@ -146,8 +157,8 @@ proc deleteValue(node: BranchesNode, key: Bytes32, depth: int = 0):
         Leaves node commitments are updated on the spot though.
   ]# 
 
-  var child = node.branches[key[depth]]
-  when TraceLogs: echo "  ".repeat(depth) & &"At branch {cast[uint64](node)}, depth {depth}, child index {key[depth].toHex}"
+  var child = node.branches[key[node.depth]]
+  when TraceLogs: echo "  ".repeat(node.depth) & &"At branch {cast[uint64](node)}, depth {node.depth}, child index {key[node.depth].toHex}"
 
   if child == nil:
     return (found: false, empty: false, values: nil)
@@ -157,34 +168,35 @@ proc deleteValue(node: BranchesNode, key: Bytes32, depth: int = 0):
     if vn.stem != key[0..30]:
       return (found: false, empty: false, values: nil)
     var target = vn.values[key[^1]]
-    when TraceLogs: echo "  ".repeat(depth+1) & &"At ValuesNode {cast[uint64](vn)}, depth {depth+1}"
+    when TraceLogs: echo "  ".repeat(vn.depth) & &"At ValuesNode {cast[uint64](vn)}, depth {vn.depth}"
     if target == nil:
-      when TraceLogs: echo "  ".repeat(depth+1) & &"Value not found at index {key[^1].toHex}"
+      when TraceLogs: echo "  ".repeat(vn.depth) & &"Value not found at index {key[^1].toHex}"
       return (found: false, empty: false, values: nil)
-    node.snapshotChildCommitment(key[depth])
+    node.snapshotChildCommitment(key[node.depth])
     var hasOtherValues = vn.values.any(v => v != nil and v != target)
     if hasOtherValues:
-      when TraceLogs: echo "  ".repeat(depth+1) & &"ValuesNode has multiple values; removing value at index {key[^1].toHex}"
+      when TraceLogs: echo "  ".repeat(vn.depth) & &"ValuesNode has multiple values; removing value at index {key[^1].toHex}"
       vn.updateCommitment(key[^1], nil)
       vn.values[key[^1]] = nil
       return (found: true, empty: false, values: nil)
-    when TraceLogs: echo "  ".repeat(depth+1) & &"ValuesNode contains only the target value at index {key[^1].toHex}; detaching from tree"
-    node.branches[key[depth]] = nil
+    when TraceLogs: echo "  ".repeat(vn.depth) & &"ValuesNode contains only the target value at index {key[^1].toHex}; detaching from tree"
+    node.branches[key[node.depth]] = nil
 
   elif child of BranchesNode:
     var bn = child.BranchesNode
-    var (found, empty, values) = deleteValue(bn, key, depth + 1)
+    var (found, empty, values) = deleteValueRecursive(bn, key)
     if not found:
       return (found, empty, values)
-    node.snapshotChildCommitment(key[depth])
+    node.snapshotChildCommitment(key[node.depth])
     if not empty:
       return (found, empty, values)
     if values == nil:
-      when TraceLogs: echo "  ".repeat(depth) & &"At branch {cast[uint64](node)}, depth {depth}. Detached child from tree."
-      node.branches[key[depth]] = nil
+      when TraceLogs: echo "  ".repeat(node.depth) & &"At branch {cast[uint64](node)}, depth {node.depth}. Detached child from tree."
+      node.branches[key[node.depth]] = nil
     else:
       when TraceLogs: echo "  ".repeat(depth) & &"At branch {cast[uint64](node)}, depth {depth}. Replaced child with inner ValuesNode."
-      node.branches[key[depth]] = values # propagate ValuesNode up the tree
+      values.depth = node.depth + 1
+      node.branches[key[node.depth]] = values # propagate ValuesNode up the tree
 
   if node.branches.all(b => b == nil):
     return (found: true, empty: true, values: nil)
@@ -198,4 +210,8 @@ proc deleteValue(node: BranchesNode, key: Bytes32, depth: int = 0):
 
 
 proc deleteValue*(node: BranchesNode, key: Bytes32): bool =
-  return deleteValue(node, key, 0).found
+  ## Deletes the value associated with the given `key` from the tree, and prunes
+  ## the tree as needed. Returns `found`=true in case the key was found and
+  ## deleted. 
+  assert node.depth == 0 ## Must be called on tree root
+  return deleteValueRecursive(node, key).found
