@@ -8,9 +8,9 @@
 
 import
   unittest,
-  ../eth_verkle/math,
+  ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment],
-  ../constantine/constantine/serialization/codecs
+  ../constantine/constantine/serialization/[codecs, codecs_banderwagon]
 
 ## Values to be used for testing
 const
@@ -287,5 +287,20 @@ suite "Tree Deletion Tests":
     
     doAssert (not tree.deleteValue(key2)), "errored during the deletion of non-existing key"
 
+suite "Verkle Node Serialization Tests":
+  test "Serde":
+    var test: array[32, byte] = fromHex(
+      Bytes32,
+      "0x3031323334353637383961626364656630313233343536373839616263646566"
+    )
+    var expected = "0x0180000000000000008000000000000000000000000000000000000000000000002949a242cb5e4ab784b6a0d081eb02b1ad9f1504effc9d702849b3c832b280d22326c61e36f849e6efe3414ebbb3279032e89035d7e455cba89b242a9dd8096f"
+    
+    var tree = newTree()
+    tree.setValue(zeroKeyTest, test)
+    tree.setValue(fourtyKeyTest, test)
+    tree.updateAllCommitments()
 
+    var arr: array[97, byte]
+    doAssert arr.serialize(tree), "Failed to serialize node"
+    doAssert arr.toHex() == expected, "Serialization Incorrect"
   
