@@ -40,12 +40,16 @@ const
   LeafC2CommitmentOffSet  = LeafC1CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon Point Size
   LeafChildrenOffSet      = LeafC2CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon Point Size
 
+  BranchNodeSerializationSize = NodeTypeSize + BitListSize + 64
+
 proc bit*(bitlist: openArray[byte], nr: int): bool =
   if len(bitlist) * 8 <= nr:
     return false
   return ((bitlist[nr div 8] and Mask[nr mod 8]) != 0)
 
-proc serialize*(dst: var array[NodeTypeSize+BitListSize+64, byte], node: BranchesNode): bool =
+## Serialize returns the serialized form of the internal node.
+## The format is: <nodeType><bitlist><commitment>
+proc serialize*(dst: var openArray[byte], node: BranchesNode): bool =
   for i in 0 ..< len(node.branches):
     if not node.branches[i].isNil():
       var t = dst[(i div 8)+InternalBitListOffSet] or Mask[(i mod 8)]
@@ -62,4 +66,35 @@ proc serialize*(dst: var array[NodeTypeSize+BitListSize+64, byte], node: Branche
 
   return true
 
-  
+proc serialize*(n: BranchesNode): seq[byte] =
+  var res = newSeq[byte](BranchNodeSerializationSize)
+  if res.serialize(n):
+    return res
+  return newSeq[byte](0)
+
+proc serializeLeafWithUncompressedCommitments*(
+    n: ValuesNode, 
+    cBytes, c1Bytes, c2Bytes : array[64, byte]
+  ): seq[byte] =
+  var children: seq[byte]
+  var bitlist: array[32, byte]
+  for i, v in n.values:
+    if not v.isNil():
+      bitlist[i div 8] = bitlist[i div 8] or Mask[i mod 8]
+      children.add(v[])
+
+  var res: seq[byte]
+  res.add(LeafRLPType)
+  res.add(n.stem)
+  res.add(bitlist)
+  res.add(cBytes)
+  res.add(c1Bytes)
+  res.add(c2Bytes)
+  res.add(children)
+
+  return res
+
+proc serialize*(n: ValuesNode): seq[byte] =
+  var cBytes: array[3, array[64, byte]]
+  discard cBytes.serializeBatchUncompressed([n.commitment, n.c1, n.c2])
+  return serializeLeafWithUncompressedCommitments(n, cBytes[0], cBytes[1], cBytes[2])

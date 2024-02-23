@@ -303,4 +303,14 @@ suite "Verkle Node Serialization Tests":
     var arr: array[97, byte]
     doAssert arr.serialize(tree), "Failed to serialize node"
     doAssert arr.toHex() == expected, "Serialization Incorrect"
+
+    let leaf0 = (ValuesNode)tree.branches[0]
+    let leaf64 = (ValuesNode)tree.branches[64]
+
+    let arr0 = leaf0.serialize()
+    let arr64 = leaf64.serialize()
+
+    echo arr0.toHex()
+    echo arr64.toHex()
+
   
