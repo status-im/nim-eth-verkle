@@ -10,7 +10,7 @@ import
   unittest,
   ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment],
-  ../constantine/constantine/serialization/[codecs, codecs_banderwagon]
+  ../constantine/constantine/serialization/codecs
 
 ## Values to be used for testing
 const

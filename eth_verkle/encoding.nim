@@ -7,16 +7,8 @@
 
 import
   ../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes],
-  ../constantine/constantine/eth_verkle_ipa/eth_verkle_constants,
-  ../constantine/constantine/hashes,
-  ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
-  ../constantine/constantine/math/arithmetic,
-  ../constantine/constantine/math/config/curves,
-  ../constantine/constantine/math/io/[io_bigints, io_fields],
-  ../constantine/constantine/ethereum_verkle_primitives,
-  ../constantine/constantine/ethereum_verkle_trees,
-  ./tree/[tree, operations, commitment],
-  ./[math, utils]
+  ./tree/[tree, operations],
+  ./math
 
 const
   BranchRLPType:  byte = 1
@@ -135,7 +127,7 @@ proc parseBranchesNode*(serialized: openArray[byte], depth: uint8): BranchesNode
   for i in InternalBitListOffSet ..< BitListSize+InternalBitListOffSet:
     for j in 0 ..< 8:
       if (serialized[i] and Mask[j]) != 0:
-        result.branches[8*(i-InternalBitListOffSet)+j] = newBranchesNode(depth+1)
+        result.branches[8*(i-InternalBitListOffSet)+j] = new BranchesNode
       else:
         result.branches[8*(i-InternalBitListOffSet)+j] = nil
 
