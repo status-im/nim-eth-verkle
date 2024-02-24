@@ -15,7 +15,8 @@ import
   ../constantine/constantine/math/io/[io_bigints, io_fields],
   ../constantine/constantine/ethereum_verkle_primitives,
   ../constantine/constantine/ethereum_verkle_trees,
-  ./tree/[tree, operations, commitment]
+  ./tree/[tree, operations, commitment],
+  ./[math, utils]
 
 const
   BranchRLPType:  byte = 1
@@ -98,3 +99,32 @@ proc serialize*(n: ValuesNode): seq[byte] =
   var cBytes: array[3, array[64, byte]]
   discard cBytes.serializeBatchUncompressed([n.commitment, n.c1, n.c2])
   return serializeLeafWithUncompressedCommitments(n, cBytes[0], cBytes[1], cBytes[2])
+
+proc parseLeafNode*(serialized: openArray[byte], depth: uint8): ValuesNode =
+  var bitlist = serialized[LeafBitListOffSet .. LeafBitListOffSet + BitListSize]
+  var offset = LeafChildrenOffSet
+  for i in 0 ..< 256:
+    if bit(bitlist, i):
+      doAssert(offset+32 < len(serialized), "verkle payload is too short")
+      var heapValue = new Bytes32
+      for j in 0..<32:
+        heapValue[j] = serialized[offset + j]
+      result.values[i] = heapValue
+      offset += 32
+  
+  for i in 0 ..< 31:
+    result.stem[i] = serialized[LeafStemOffSet + i]
+  result.depth = depth
+
+  var c1: array[64, byte]
+  var c2: array[64, byte]
+  var comm: array[64, byte]
+  for i in 0 ..< 64:
+    c1[i] = serialized[LeafC1CommitmentOffSet + i]
+    c2[i] = serialized[LeafC2CommitmentOffSet + i]
+    comm[i] = serialized[LeafCommitmentOffSet + i]
+
+  doAssert result.c1.deserializeUncompressed(c1) == cttCodecEcc_Success, "failed to deserialize c1"
+  doAssert result.c2.deserializeUncompressed(c2) == cttCodecEcc_Success, "failed to deserialize c2"
+  doAssert result.commitment.deserializeUncompressed(comm) == cttCodecEcc_Success, "failed to deserialize commitment"
+    
