@@ -100,21 +100,23 @@ proc serialize*(n: ValuesNode): seq[byte] =
   discard cBytes.serializeBatchUncompressed([n.commitment, n.c1, n.c2])
   return serializeLeafWithUncompressedCommitments(n, cBytes[0], cBytes[1], cBytes[2])
 
-proc parseLeafNode*(serialized: openArray[byte], depth: uint8): ValuesNode =
-  var bitlist = serialized[LeafBitListOffSet .. LeafBitListOffSet + BitListSize]
+proc parseValuesNode*(serialized: openArray[byte], depth: uint8): ValuesNode =
+  var bitlist = serialized[LeafBitListOffSet ..< LeafBitListOffSet + BitListSize]
   var offset = LeafChildrenOffSet
+  result = new ValuesNode
+
+  for i in 0 ..< 31:
+    result.stem[i] = serialized[LeafStemOffSet + i]
+  result.depth = depth
+
   for i in 0 ..< 256:
     if bit(bitlist, i):
-      doAssert(offset+32 < len(serialized), "verkle payload is too short")
+      doAssert(offset+32 <= len(serialized), "verkle payload is too short")
       var heapValue = new Bytes32
       for j in 0..<32:
         heapValue[j] = serialized[offset + j]
       result.values[i] = heapValue
       offset += 32
-  
-  for i in 0 ..< 31:
-    result.stem[i] = serialized[LeafStemOffSet + i]
-  result.depth = depth
 
   var c1: array[64, byte]
   var c2: array[64, byte]
@@ -128,3 +130,25 @@ proc parseLeafNode*(serialized: openArray[byte], depth: uint8): ValuesNode =
   doAssert result.c2.deserializeUncompressed(c2) == cttCodecEcc_Success, "failed to deserialize c2"
   doAssert result.commitment.deserializeUncompressed(comm) == cttCodecEcc_Success, "failed to deserialize commitment"
     
+proc parseBranchesNode*(serialized: openArray[byte], depth: uint8): BranchesNode =
+  result = newBranchesNode(depth)
+  for i in InternalBitListOffSet ..< BitListSize+InternalBitListOffSet:
+    for j in 0 ..< 8:
+      if (serialized[i] and Mask[j]) != 0:
+        result.branches[8*(i-InternalBitListOffSet)+j] = newBranchesNode(depth+1)
+      else:
+        result.branches[8*(i-InternalBitListOffSet)+j] = nil
+
+  result.depth = depth
+  var comm: array[64, byte]
+  for i in 0 ..< 64:
+    comm[i] = serialized[InternalCommitmentOffSet + i]
+  doAssert result.commitment.deserializeUncompressed(comm) == cttCodecEcc_Success, "failed to deserialize commitment"
+
+proc parseNode*(serialized: openArray[byte], depth: uint8): Node =
+  if serialized[NodeTypeOffSet] == BranchRLPType:
+    return parseBranchesNode(serialized, depth)
+  elif serialized[NodeTypeOffSet] == LeafRLPType:
+    return parseValuesNode(serialized, depth)
+  else:
+    return nil
