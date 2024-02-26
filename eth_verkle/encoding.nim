@@ -87,6 +87,8 @@ proc serializeLeafWithUncompressedCommitments*(
 
   return res
 
+## Serialize returns the serialized form of the Values node/Leaf Node
+## The format is: <nodeType><stem><bitlist><comm><c1comm><c2comm><children...>
 proc serialize*(n: ValuesNode): seq[byte] =
   var cBytes: array[3, array[64, byte]]
   discard cBytes.serializeBatchUncompressed([n.commitment, n.c1, n.c2])
@@ -109,6 +111,8 @@ proc parseValuesNode*(serialized: openArray[byte], depth: uint8): ValuesNode =
         heapValue[j] = serialized[offset + j]
       result.values[i] = heapValue
       offset += 32
+
+  doAssert len(serialized[LeafBitListOffSet..^1]) >= 3*64, "leaf node commitments are not the correct size"
 
   var c1: array[64, byte]
   var c2: array[64, byte]
@@ -138,6 +142,7 @@ proc parseBranchesNode*(serialized: openArray[byte], depth: uint8): BranchesNode
   doAssert result.commitment.deserializeUncompressed(comm) == cttCodecEcc_Success, "failed to deserialize commitment"
 
 proc parseNode*(serialized: openArray[byte], depth: uint8): Node =
+  doAssert len(serialized) >= NodeTypeSize+64, "verkle payload is too short"
   if serialized[NodeTypeOffSet] == BranchRLPType:
     return parseBranchesNode(serialized, depth)
   elif serialized[NodeTypeOffSet] == LeafRLPType:
