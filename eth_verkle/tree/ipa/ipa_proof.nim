@@ -66,10 +66,3 @@ const StemSize*: int = 31
 type StateDiff* = object
   Stem*: array[StemSize, byte]
   SuffixStateDiffsInVKT*: SuffixStateDiffs
-
-
-
-
-
-
-
