@@ -28,7 +28,7 @@ type IPAProofVkt* = object
 #
 #########################################################
 
-type ExecutionWitnes* = object
+type VerkleProof* = object
   ## OtherStems stores the stems to which the leaf notes don't match initially in a Proof of Presence check.
   ## DepthExtensionPresent stores the depth to which the leaf is present
   ## Corresponding to a branch of the partial view
@@ -41,7 +41,7 @@ type ExecutionWitnes* = object
   D*: array[32, byte]
   IPAProofPView*: IPAProofVkt 
 
-type VerkleProof* = object
+type VerkleProofUtils* = object
   ## Multipoint argument
   ## ExtentionStatus for each stem
   ## Commitments sorted lexicographically by their path in the tree
