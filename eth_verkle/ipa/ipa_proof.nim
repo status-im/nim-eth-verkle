@@ -55,14 +55,34 @@ type VerkleProofUtils* = object
   PostStateValues*: seq[seq[byte]]
 
 type SuffixStateDiff* = object
-  Suffix*: byte
-  CurrentVal*: array[32, byte]
+  Suffix*: uint8
+  CurrentVal*: var array[32, byte]
   NewVal*: array[32, byte]
 
-type SuffixStateDiffs* = seq[SuffixStateDiff]
+type SuffixStateDiffs* = var seq[SuffixStateDiff]
 
 const StemSize*: int = 31
 
-type StateDiff* = object
-  Stem*: array[StemSize, byte]
-  SuffixStateDiffsInVKT*: SuffixStateDiffs
+type StemStateDiff* = object
+  Stem*: seq[byte]
+  SuffixDiffsInVKT*: SuffixStateDiffs
+
+type StateDiff* = seq[StemStateDiff]
+
+func loadStateDiff* (res: var StateDiff, inp: StateDiff)=
+  for i in 0 ..< inp.len:
+    var auxStem {.noInit.}: seq[byte]
+    auxStem.add(inp[i].Stem)
+    res[i].Stem.add(auxStem)
+
+    for j in 0 ..< inp[i].SuffixDiffsInVKT.len:
+      var auxSuffix {.noInit.}: uint8
+      auxSuffix = (inp[i].SuffixDiffsInVKT[j].Suffix)
+      res[i].SuffixDiffsInVKT[j].Suffix = auxSuffix
+
+      for k in 0 ..< 32:
+        if inp[i].SuffixDiffsInVKT[j].CurrentVal[k] == fromHex("0x00"):
+          res[i].SuffixDiffsInVKT[j].CurrentValue
+
+
+    
