@@ -8,7 +8,7 @@
 
 import
   unittest,
-  ../eth_verkle/math,
+  ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment],
   ../constantine/constantine/serialization/codecs
 
@@ -287,5 +287,43 @@ suite "Tree Deletion Tests":
     
     doAssert (not tree.deleteValue(key2)), "errored during the deletion of non-existing key"
 
+suite "Verkle Node Serialization Tests":
+  test "Branch Node and Value Node Serialization Test":
+    var test: array[32, byte] = fromHex(
+      Bytes32,
+      "0x3031323334353637383961626364656630313233343536373839616263646566"
+    )
+    var expected = "0x0180000000000000008000000000000000000000000000000000000000000000002949a242cb5e4ab784b6a0d081eb02b1ad9f1504effc9d702849b3c832b280d22326c61e36f849e6efe3414ebbb3279032e89035d7e455cba89b242a9dd8096f"
+    
+    var tree = newTree()
+    tree.setValue(zeroKeyTest, test)
+    tree.setValue(fourtyKeyTest, test)
+    tree.updateAllCommitments()
+
+    var arr: array[97, byte]
+    doAssert arr.serialize(tree), "Failed to serialize node"
+    doAssert arr.toHex() == expected, "Serialization Incorrect"
+
+    let leaf0 = (ValuesNode)tree.branches[0]
+    let leaf64 = (ValuesNode)tree.branches[64]
+
+    let arr0 = leaf0.serialize()
+    let arr64 = leaf64.serialize()
+
+    doAssert arr0.toHex() == "0x02000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000357f4e31c18e01c589456e2ca1ef94c39129b0188f1d8b25f090f68aa1fa64660d9d8a7645d9a965fa65566d79378d224e3b6e7c3976925f13c8ccd08bcad20832ee6170dbd782063f8162c5c16a259ce24b1691bded3a6022ed0257cd5e4a66243c31e3f8ee7f5e0bcaf288a6c67ac2a43ad86960e41073ab83ce585c80172f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000013031323334353637383961626364656630313233343536373839616263646566",
+      "Serialization of leaf incorrect"
+    doAssert arr64.toHex() == "0x024000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000003840da51ddde3bf1c6b76711c3e71c41970ca976744590e33b0e191db54b3656050e0812a7d5716c1e303d159292b035a5734c2c93ed3cbd25851e359ef08f6032ee6170dbd782063f8162c5c16a259ce24b1691bded3a6022ed0257cd5e4a66243c31e3f8ee7f5e0bcaf288a6c67ac2a43ad86960e41073ab83ce585c80172f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000013031323334353637383961626364656630313233343536373839616263646566",
+      "Serialization of leaf incorrect"
+
+    # Reconstruction
+    let res = parseNode(arr, 0)
+    let resLeaf0 = parseNode(arr0, 1)
+    let resLeaf64 = parseNode(arr64, 1)
+
+    res.BranchesNode.branches[0] = resLeaf0.ValuesNode
+    res.BranchesNode.branches[64] = resLeaf64.ValuesNode
+
+    res.BranchesNode.updateAllCommitments()
+    doAssert res.commitment.serializePoint() == tree.commitment.serializePoint(), "Reconstruction failed"
 
   

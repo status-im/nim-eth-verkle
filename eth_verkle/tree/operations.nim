@@ -28,7 +28,7 @@ proc newValuesNode*(key, value: Bytes32, depth: uint8) : ValuesNode =
   result.initializeCommitment()
 
 
-proc newBranchesNode(depth: uint8) : BranchesNode =
+proc newBranchesNode*(depth: uint8) : BranchesNode =
   ## Allocates a new `BranchesNode` with the given depth
   result = new BranchesNode
   result.depth = depth
