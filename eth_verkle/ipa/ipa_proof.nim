@@ -6,16 +6,20 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import 
-  ../../../constantine/constantine/[ethereum_verkle_trees, ethereum_verkle_primitives]
+  ../../../constantine/constantine/
+  [
+    ethereum_verkle_trees, 
+    ethereum_verkle_primitives
+  ],
+  ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes]
 
-# ########################################################################
+#########################################################################
 #
 #  Verkle Proof Types required to Interface Eth Verkle IPA in Constantine
 #
-# ########################################################################\
+#########################################################################
 
-const
-  IpaProofDepth*: int = 8
+const IpaProofDepth*: int = 8
 
 type IPAProofVkt* = object
   C_L: array[IpaProofDepth, array[32, byte]]
@@ -81,8 +85,16 @@ func loadStateDiff* (res: var StateDiff, inp: StateDiff)=
       res[i].SuffixDiffsInVKT[j].Suffix = auxSuffix
 
       for k in 0 ..< 32:
-        if inp[i].SuffixDiffsInVKT[j].CurrentVal[k] == fromHex("0x00"):
-          res[i].SuffixDiffsInVKT[j].CurrentValue
+        var aux = fromHex(array[1, byte], "0x00")
+        if inp[i].SuffixDiffsInVKT[j].CurrentVal[k] != aux[0]:
+          res[i].SuffixDiffsInVKT[j].CurrentVal[k] = aux[0]
+          res[i].SuffixDiffsInVKT[j].CurrentVal[k] = inp[i].SuffixDiffsInVKT[j].CurrentVal[k]
+
+      for k in 0 ..< 32:
+        var aux = fromHex(array[1, byte], "0x00")
+        if inp[i].SuffixDiffsInVKT[j].NewVal[k] != aux[0]:
+          res[i].SuffixDiffsInVKT[j].NewVal[k] = aux[0]
+          res[i].SuffixDiffsInVKT[j].NewVal[k] = inp[i].SuffixDiffsInVKT[j].NewVal[k]
 
 
     
