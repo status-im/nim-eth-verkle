@@ -16,7 +16,8 @@ import
     codecs_banderwagon, 
     codecs_status_codes
   ],
-  ../math
+  ../math,
+  ../tree/tree
 
 #########################################################################
 #
@@ -28,13 +29,13 @@ type KeyList* = seq[seq[byte]]
 
 
 type ProofElements* = object
-  Cis*: var seq[EC_P]
-  Zis*: var seq[byte]
-  Yis*: var seq[Field]
-  Fis*: var seq[seq[Field]]
-  CommByPath*: var Table[string, EC_P]
-  Vals*: seq[seq[byte]]
-  cisZisTup*: var Table[EC_P, Table[uint8, bool]]
+  Cis*:                        seq[EC_P]
+  Zis*:                        seq[byte]
+  Yis*:                        seq[Field]
+  Fis*:                        seq[seq[Field]]
+  Vals*:                       seq[seq[byte]]
+  CommByPath*:                 Table[string, EC_P]
+  cisZisTup*:                  Table[EC_P, Table[uint8, bool]]
 
 #########################################################################
 #
@@ -113,3 +114,19 @@ proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
 #                     Getter function for Proof Utils
 #
 #########################################################################
+
+proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte], seq[seq[byte]])=
+
+  var groups = groupKeys(keys, n.depth)
+
+  var extStatuses: seq[byte]
+  var poaStatuses: seq[byte]
+
+  var pElem: ProofElements
+
+  pElem.Cis = @[]
+  pElem.Zis = @[]
+  pElem.Fis = @[]
+  pElem.Vals = @[]
+  pElem.CommByPath = initTable[string, EC_P]()
+
