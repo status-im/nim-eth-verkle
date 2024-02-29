@@ -25,6 +25,8 @@ import
 #########################################################################
 type KeyList* = seq[seq[byte]]
 
+
+
 type ProofElements* = object
   Cis*: var seq[EC_P]
   Zis*: var seq[byte]
