@@ -12,7 +12,8 @@ import
     ethereum_verkle_primitives
   ],
   ../../../constantine/constantine/serialization/[
-    codecs, codecs_banderwagon, 
+    codecs, 
+    codecs_banderwagon, 
     codecs_status_codes
   ],
   ../math
@@ -22,6 +23,7 @@ import
 #                 Verkle Proof Items and it's Utilities
 #
 #########################################################################
+type KeyList* = seq[seq[byte]]
 
 type ProofElements* = object
   Cis*: var seq[EC_P]
@@ -65,3 +67,47 @@ func mergeProofElements* (res: var ProofElements, other: var ProofElements)=
         res.CommByPath[path] = c
 
     res.Vals.add(other.Vals)
+
+#########################################################################
+#
+#                     Utilities to Group Keys
+#
+#########################################################################
+
+proc offsetKey*(key: seq[byte], depth: byte): byte = 
+  if int(depth) < key.len:
+    return key[depth]
+  else:
+    return 0
+
+
+proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
+  if keys.len == 0:
+    return @[]
+
+  if keys.len == 1:
+    return @[keys]
+
+  var groups: seq[KeyList] = @[]
+  var firstKey = 0
+  var lastKey = 1
+
+  while lastKey < keys.len:
+    let key = keys[lastKey]
+    let keyIdx = offsetKey(key, depth)
+    let prevIdx = offsetKey(keys[lastKey - 1], depth)
+
+    if keyIdx != prevIdx:
+      groups.add(keys[firstKey ..< lastKey])
+      firstKey = lastKey
+
+    inc(lastKey)
+
+  groups.add(keys[firstKey ..< lastKey])
+  return groups
+    
+#########################################################################
+#
+#                     Getter function for Proof Utils
+#
+#########################################################################
