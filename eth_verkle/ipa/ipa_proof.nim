@@ -53,7 +53,7 @@ type VerkleProofUtils* = object
   ## Stems proving the `to be proved` stem is absent
   Multipoint*: MultiProof
   ExtensionStatus*: seq[byte]
-  Cs*: seq[EC_P]
+  Cs*: seq[Point]
   PoaStems*: seq[seq[byte]]
   Keys*: seq[seq[byte]]
   PreStateValues*: seq[seq[byte]]

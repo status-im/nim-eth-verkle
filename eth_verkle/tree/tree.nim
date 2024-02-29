@@ -19,6 +19,9 @@ type
     commitment*: Point
     depth*: uint8
 
+  HashedNode* = ref Node
+    ## TODO: Type that should vary from cl to cl, Node type that is retrieved from the disk
+
   BranchesNode* = ref object of Node
     ## Internal node in the tree that holds references to 256 child nodes (or nil-s)
     branches*: array[256, Node]

@@ -16,7 +16,7 @@ import
     codecs_banderwagon, 
     codecs_status_codes
   ],
-  ../math,
+  ../[encoding, math],
   ../tree/tree
 
 #########################################################################
@@ -29,13 +29,13 @@ type KeyList* = seq[seq[byte]]
 
 
 type ProofElements* = object
-  Cis*:                        seq[EC_P]
+  Cis*:                        seq[Point]
   Zis*:                        seq[byte]
   Yis*:                        seq[Field]
   Fis*:                        seq[seq[Field]]
   Vals*:                       seq[seq[byte]]
-  CommByPath*:                 Table[string, EC_P]
-  cisZisTup*:                  Table[EC_P, Table[uint8, bool]]
+  CommByPath*:                 Table[string, Point]
+  cisZisTup*:                  Table[Point, Table[uint8, bool]]
 
 #########################################################################
 #
@@ -119,7 +119,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
 
   var groups = groupKeys(keys, n.depth)
 
-  var extStatuses: seq[byte]
+  var extStatuses {.noInit.}: seq[byte]
   var poaStatuses: seq[byte]
 
   var pElem: ProofElements
@@ -128,5 +128,30 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   pElem.Zis = @[]
   pElem.Fis = @[]
   pElem.Vals = @[]
-  pElem.CommByPath = initTable[string, EC_P]()
+  pElem.CommByPath = initTable[string, Point]()
+
+  var fi: array[VerkleDomain, Field]
+  var points: array[VerkleDomain, Point]
+
+  for i in 0 ..< n.branches.len:
+
+    var child = n.branches[i]
+    if child.isNil() == false:
+      var c: Node
+      if child of HashedNode:
+        var childPath = newSeq[byte](n.depth + 1)
+        childPath.add(keys[0][0..n.depth])
+        childPath[n.depth] = uint8(i)
+        var c = parseNode(childPath, n.depth + 1)
+        n.branches[i] = c
+      else:
+        c = child
+      points[i] = c.commitment
+    else:
+      points[i] = IdentityPoint
+
+  fi.banderwagonMultiMapToScalarField(points)
+
+
+
 
