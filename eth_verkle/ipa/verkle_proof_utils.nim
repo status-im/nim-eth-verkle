@@ -26,8 +26,6 @@ import
 #########################################################################
 type KeyList* = seq[seq[byte]]
 
-
-
 type ProofElements* = object
   Cis*:                        seq[Point]
   Zis*:                        seq[byte]
@@ -108,6 +106,12 @@ proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
 
   groups.add(keys[firstKey ..< lastKey])
   return groups
+
+proc keyToStem* (key: openArray[byte]): seq[byte]=
+  if key.len < 31:
+    return @[]
+  
+  return key[0..31]
     
 #########################################################################
 #
@@ -151,6 +155,39 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
       points[i] = IdentityPoint
 
   fi.banderwagonMultiMapToScalarField(points)
+
+  for i in 0 ..< groups.len:
+    var childIdx = offsetKey(groups[0][i], n.depth)
+
+    var yi: Field 
+    yi = fi[childIdx]
+
+    pElem.Cis.add(n.commitment)
+    pElem.Zis.add(childIdx)
+    pElem.Yis.add(yi)
+    for i in 0 ..< pElem.Fis.len:
+      pElem.Fis[i].add(fi)
+    
+    var inter: seq[byte]
+    inter = groups[0][i][0..n.depth]
+    var inter_hex = inter.toHex()
+    pElem.CommByPath[inter_hex] = n.commitment
+
+  for i in 0 ..< groups.len:
+    var childIdx = offsetKey(groups[0][i], n.depth)
+
+    #TODO: Cover cases for Unknown Nodes
+
+    ## Special case of a proof of absence: no children
+    ## commitment, or the value is at 0.
+    if n.branches[childIdx].isNil() == true:
+      var addedStems: Table[string, bool] = initTable[string, bool]()
+
+      for j in 0 ..< groups[i].len:
+        var stem: seq[byte] 
+        stem = keyToStem(groups[i][j])
+        var stemStr = stem.toHex()
+
 
 
 
