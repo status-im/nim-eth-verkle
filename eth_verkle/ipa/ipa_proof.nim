@@ -6,7 +6,8 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ipa_proof,
+  verkle_proof_utils,
+  ../[math, encoding],
   ../../../constantine/constantine/
   [
     ethereum_verkle_trees, 
@@ -97,5 +98,6 @@ func loadStateDiff* (res: var StateDiff, inp: StateDiff)=
           res[i].SuffixDiffsInVKT[j].NewVal[k] = aux[0]
           res[i].SuffixDiffsInVKT[j].NewVal[k] = inp[i].SuffixDiffsInVKT[j].NewVal[k]
 
+# proc getCommitmentsForMultiproof* (root: Node, keys: seq[seq[byte]]): (ProofElements, seq[byte], seq[seq[byte]])=
 
     

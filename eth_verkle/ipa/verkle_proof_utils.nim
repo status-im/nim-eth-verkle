@@ -7,6 +7,7 @@
 
 import 
   tables,
+  algorithm,
   ../../../constantine/constantine/[
     ethereum_verkle_trees, 
     ethereum_verkle_primitives
@@ -17,6 +18,7 @@ import
     codecs_status_codes
   ],
   ../[encoding, math],
+  ../err/verkle_error,
   ../tree/tree
 
 #########################################################################
@@ -37,6 +39,31 @@ type ProofElements* = object
 
 #########################################################################
 #
+#                     Utilities to Sort Keylists
+#
+#########################################################################
+
+proc comparatorFor2DimArrays(a, b: seq[seq[byte]]): int=
+  var sumA = 0
+  var sumB = 0
+
+  for subArray in a:
+    for item in subArray:
+      sumA += int(item)
+
+  for subArray in b:
+    for item in subArray:
+      sumB += int(item) 
+
+  if sumA < sumB:
+    return -1
+  elif sumA > sumB:
+    return 1
+  else:
+    return 0
+
+#########################################################################
+#
 #                     Utilities to Merge Proof Items
 #
 #########################################################################
@@ -44,16 +71,16 @@ type ProofElements* = object
 func mergeProofElements* (res: var ProofElements, other: var ProofElements)=
   if res.cisZisTup.len == 0:
     for i, ci in res.Cis:
-      if not res.cisZisTup.hasKey(ci):
+      if res.cisZisTup.hasKey(ci).bool() == false:
         res.cisZisTup[ci] = initTable[uint8, bool]()
       res.cisZisTup[ci][res.Zis[i]] = true
 
   for i, ci in other.Cis:
     
-    if not res.cisZisTup.hasKey(ci):
+    if res.cisZisTup.hasKey(ci).bool() == false:
       res.cisZisTup[ci] = initTable[byte, bool]()
 
-    if res.cisZisTup[ci].hasKey(other.Zis[i]):
+    if res.cisZisTup[ci].hasKey(other.Zis[i]).bool() == true:
       continue
 
     res.cisZisTup[ci][other.Zis[i]] = true
@@ -124,7 +151,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   var groups = groupKeys(keys, n.depth)
 
   var extStatuses {.noInit.}: seq[byte]
-  var poaStatuses: seq[byte]
+  var poaStatuses: seq[seq[byte]]
 
   var pElem: ProofElements
 
@@ -187,6 +214,32 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
         var stem: seq[byte] 
         stem = keyToStem(groups[i][j])
         var stemStr = stem.toHex()
+
+        if addedStems[stemStr] == false:
+          extStatuses.add(uint8(extStatusAbsentEmpty) or ((n.depth + 1) shl 3))
+          addedStems[stemStr] = true
+
+        var aux = fromHex(array[1, byte], "0x00")
+        for k in 0 ..< pElem.Vals.len:
+          pElem.Vals[i].add(aux)
+
+      continue
+
+    var pElemAdd: ProofElements
+    var extStatuses2: seq[byte]
+    var other: seq[seq[byte]]
+
+    (pElemAdd, extStatuses2, other) = getProofItems(n, groups[i])
+
+    pElem.mergeProofElements(pElemAdd)
+    poaStatuses.add(other)
+    extStatuses.add(extStatuses2)
+
+  return (pElem, extStatuses, poaStatuses)
+
+
+
+
 
 
 

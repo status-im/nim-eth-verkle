@@ -16,8 +16,9 @@ type
     # Missing the child node along with the path
     extStatusAbsentEmpty,
     # Path led a node with a different stem entirely
-    extStatusPresent,
+    extStatusAbsentOther,
     # Stem Present
+    extStatusPresent
 
 #########################################################################
 #
