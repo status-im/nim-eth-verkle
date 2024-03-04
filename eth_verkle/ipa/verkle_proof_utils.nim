@@ -43,17 +43,15 @@ type ProofElements* = object
 #
 #########################################################################
 
-proc comparatorFor2DimArrays(a, b: seq[seq[byte]]): int=
+proc comparatorFor2DimArrays*(a, b: seq[byte]): int=
   var sumA = 0
   var sumB = 0
 
-  for subArray in a:
-    for item in subArray:
-      sumA += int(item)
+  for item in a:
+    sumA += int(item)
 
-  for subArray in b:
-    for item in subArray:
-      sumB += int(item) 
+  for item in b:
+    sumB += int(item) 
 
   if sumA < sumB:
     return -1
@@ -146,7 +144,7 @@ proc keyToStem* (key: openArray[byte]): seq[byte]=
 #
 #########################################################################
 
-proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte], seq[seq[byte]])=
+proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte], seq[seq[byte]], bool)=
 
   var groups = groupKeys(keys, n.depth)
 
@@ -228,20 +226,14 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     var pElemAdd: ProofElements
     var extStatuses2: seq[byte]
     var other: seq[seq[byte]]
+    var check = false
 
-    (pElemAdd, extStatuses2, other) = getProofItems(n, groups[i])
+    (pElemAdd, extStatuses2, other, check) = getProofItems(n, groups[i])
 
     pElem.mergeProofElements(pElemAdd)
     poaStatuses.add(other)
     extStatuses.add(extStatuses2)
 
-  return (pElem, extStatuses, poaStatuses)
-
-
-
-
-
-
-
+  return (pElem, extStatuses, poaStatuses, true)
 
 

@@ -7,12 +7,17 @@
 
 import
   verkle_proof_utils,
+  algorithm,
+  tables,
   ../[math, encoding],
   ../../../constantine/constantine/
   [
     ethereum_verkle_trees, 
     ethereum_verkle_primitives
   ],
+  ../[encoding, math],
+  ../err/verkle_error,
+  ../tree/tree,
   ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes]
 
 #########################################################################
@@ -98,6 +103,54 @@ func loadStateDiff* (res: var StateDiff, inp: StateDiff)=
           res[i].SuffixDiffsInVKT[j].NewVal[k] = aux[0]
           res[i].SuffixDiffsInVKT[j].NewVal[k] = inp[i].SuffixDiffsInVKT[j].NewVal[k]
 
-# proc getCommitmentsForMultiproof* (root: Node, keys: seq[seq[byte]]): (ProofElements, seq[byte], seq[seq[byte]])=
+proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList): (ProofElements, seq[byte], seq[seq[byte]], bool)=
+  keys.sort(comparatorFor2DimArrays)
 
-    
+  var pEl: ProofElements
+  pEl.Cis = @[]
+  pEl.Zis = @[]
+  pEl.Fis = @[]
+  pEl.Vals = @[]
+  pEl.CommByPath = initTable[string, Point]()
+
+  var outs: seq[byte]
+  var outStem: seq[seq[byte]]
+  var check = false
+  (pEl, outs, outStem, check) = getProofItems(root, keys)
+
+  return (pEl, outs, outStem, true)
+
+proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var KeyList): (ProofElements, seq[byte], seq[seq[byte]], seq[seq[byte]], bool)=
+  ## this function leverages the logic that is used both in the proving and verifying methods.
+  ## it takes a pre-state tree and an optional post-state tree, extracts the proof data from them and returns
+  ## all the items required to build/verify a proof.
+  var pEl: ProofElements
+  pEl.Cis = @[]
+  pEl.Zis = @[]
+  pEl.Fis = @[]
+  pEl.Vals = @[]
+  pEl.CommByPath = initTable[string, Point]()
+
+  if keys.len == 0:
+    return (pEl, @[], @[@[]], @[@[]], false)
+
+  var es: seq[byte]
+  var poass: seq[seq[byte]]
+  var check = false
+
+  (pEl, es, poass, check) = getCommitmentsForMultiproof(preroot, keys)
+  if check == false:
+    return (pEl, @[], @[@[]], @[@[]], false)
+
+  var postvals = newSeq[seq[byte]](keys.len)
+  postvals = @[@[]]
+  if postvals.isNil():
+
+    ## Keys were sorted already in getCommitmentsForMultiproof()
+    ## Set the post values, if they are untouched leaving them nil
+    for i in 0..<keys.len:
+
+
+
+
+
