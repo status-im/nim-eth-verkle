@@ -17,7 +17,7 @@ import
   ],
   ../[encoding, math],
   ../err/verkle_error,
-  ../tree/tree,
+  ../tree/[tree, operations],
   ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes]
 
 #########################################################################
@@ -144,13 +144,42 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
 
   var postvals = newSeq[seq[byte]](keys.len)
   postvals = @[@[]]
-  if postvals.isNil():
-
-    ## Keys were sorted already in getCommitmentsForMultiproof()
+  if postroot.isNil() == false:
+    ## Keys were sorted already in getCommitmentsForMultiproof
     ## Set the post values, if they are untouched leaving them nil
     for i in 0..<keys.len:
+      var val: ref Bytes32
+      val = postroot.getValueSeq(keys[i])
 
+      for j in 0 ..< 32:
 
+        if pEl.Vals[i][j] == val[j]:
+          postvals[i][j] = val[j]
+
+  ## [0..3]: Proof elements of the pre-state trie for serialization
+  ## 3: values to be inserted in the post-state trie for serialization
+  return (pEl, es, poass, postvals, true)
+
+proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[Field], seq[byte], bool)=
+
+  var pEl: ProofElements
+  pEl.Cis = @[]
+  pEl.Zis = @[]
+  pEl.Fis = @[]
+  pEl.Vals = @[]
+  pEl.CommByPath = initTable[string, Point]()
+
+  var es: seq[byte]
+  var poass: seq[seq[byte]]
+  var check = false
+  var postvals = newSeq[seq[byte]](keys.len)
+  
+  (pEl, es, poass, postvals, check) = getProofElementsFromTree(preroot, postroot, keys)
+
+  # var config {.noInit.}: IPASettings
+  # config.genIPAConfig()
+
+  # var tr {.noInit.}: sha256
 
 
 

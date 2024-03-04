@@ -6,4 +6,5 @@
 	url = https://github.com/daniellm/go-verkle
 [submodule "constantine"]
 	path = constantine
-	url = https://github.com/mratsim/constantine
+	url = https://github.com/agnxsh/constantine
+	branch = ipa-mult-fix-enhance

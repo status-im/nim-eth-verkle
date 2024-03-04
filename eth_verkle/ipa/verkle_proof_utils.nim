@@ -8,6 +8,8 @@
 import 
   tables,
   algorithm,
+  sequtils,
+  strutils,
   ../../../constantine/constantine/[
     ethereum_verkle_trees, 
     ethereum_verkle_primitives
@@ -59,6 +61,19 @@ proc comparatorFor2DimArrays*(a, b: seq[byte]): int=
     return 1
   else:
     return 0
+
+#########################################################################
+#
+#                     Hexadecimal Comparator Function
+#
+#########################################################################
+
+proc hexComparator* (x,y: string): int=
+  let xi = parseHexInt(x)
+  let yi = parseHexInt(y)
+  if xi < yi: return -1
+  elif xi > yi: return 1
+  else: return 0
 
 #########################################################################
 #
@@ -163,7 +178,6 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   var points: array[VerkleDomain, Point]
 
   for i in 0 ..< n.branches.len:
-
     var child = n.branches[i]
     if child.isNil() == false:
       var c: Node
@@ -202,7 +216,6 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     var childIdx = offsetKey(groups[0][i], n.depth)
 
     #TODO: Cover cases for Unknown Nodes
-
     ## Special case of a proof of absence: no children
     ## commitment, or the value is at 0.
     if n.branches[childIdx].isNil() == true:
@@ -235,5 +248,3 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     extStatuses.add(extStatuses2)
 
   return (pElem, extStatuses, poaStatuses, true)
-
-
