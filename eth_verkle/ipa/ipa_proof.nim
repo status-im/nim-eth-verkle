@@ -9,19 +9,16 @@ import
   verkle_proof_utils,
   algorithm,
   tables,
-  ../[math, encoding],
   ../../../constantine/constantine/hashes,
   ../../../constantine/constantine/
   [
-    ethereum_verkle_trees, 
     ethereum_verkle_primitives
   ],
   ../../../constantine/constantine/platforms/primitives,
   ../../../constantine/constantine/math/elliptic/ec_twistededwards_projective,
   ../../../constantine/constantine/math/arithmetic,
-  ../../../constantine/constantine/math/config/curves,
   ../../../constantine/constantine/math/io/[io_bigints, io_fields],
-  ../[encoding, math],
+  ../[encoding, math, upstream],
   ../err/verkle_error,
   ../tree/[tree, operations],
   ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes]
@@ -192,7 +189,21 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
   var checks = false
   var cis {.noInit.}: seq[EC_P]
   var fis {.noInit.}: array[VerkleDomain, array[VerkleDomain, Fr[Banderwagon]]]
-  checks = mprv.createMultiProof
+
+  for i in 0 ..< pEl.Cis.len:
+    cis[i] = pEl.Cis[i]
+
+  for i in 0 ..< VerkleDomain:
+    for j in 0 ..< VerkleDomain:
+      fis[i][j].setZero()
+
+  for i in 0 ..< VerkleDomain:
+    for j in 0 ..< VerkleDomain:
+      fis[i][j] = pEl.Fis[i][j]
+
+
+  checks = mprv.createMultiProof(tr, config, pEl.Cis, fis, pEl.Zis)
+
 
 
 

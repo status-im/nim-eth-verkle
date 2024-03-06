@@ -8,7 +8,8 @@
 import
   ../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes],
   ./tree/[tree, operations],
-  ./math
+  ./math,
+  ./upstream
 
 const
   BranchRLPType:  byte = 1

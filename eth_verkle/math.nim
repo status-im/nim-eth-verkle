@@ -9,6 +9,7 @@
 ##  obtained from the Constantine library
 
 import
+  upstream,
   ../constantine/constantine/serialization/[codecs_banderwagon, codecs_status_codes],
   ../constantine/constantine/eth_verkle_ipa/eth_verkle_constants,
   ../constantine/constantine/hashes,
@@ -16,16 +17,9 @@ import
   ../constantine/constantine/math/arithmetic,
   ../constantine/constantine/math/config/curves,
   ../constantine/constantine/math/io/[io_bigints, io_fields],
-  ../constantine/constantine/ethereum_verkle_primitives,
-  ../constantine/constantine/ethereum_verkle_trees
+  ../constantine/constantine/ethereum_verkle_primitives
 
 export finite_fields.`==`
-
-type
-  Bytes32* = Bytes
-    ## A 32-bytes blob that can represent a verkle key or value
-  Field* = Fr[Banderwagon]
-  Point* = EC_P
 
 
 # Todo: can this be converted to a const?

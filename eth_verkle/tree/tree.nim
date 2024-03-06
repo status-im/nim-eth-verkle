@@ -10,7 +10,7 @@
 
 import
   std/[streams, tables],
-  ../[utils, math]
+  ../[utils, math, upstream]
 
 
 type

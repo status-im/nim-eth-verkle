@@ -11,7 +11,6 @@ import
   sequtils,
   strutils,
   ../../../constantine/constantine/[
-    ethereum_verkle_trees, 
     ethereum_verkle_primitives
   ],
   ../../../constantine/constantine/serialization/[
@@ -19,7 +18,7 @@ import
     codecs_banderwagon, 
     codecs_status_codes
   ],
-  ../[encoding, math],
+  ../[encoding, math, upstream],
   ../err/verkle_error,
   ../tree/tree
 
@@ -30,6 +29,9 @@ import
 #########################################################################
 type KeyList* = seq[seq[byte]]
 
+type ZisExistIT = Table[int, bool]
+type CisZisTup =Table[Point, ZisExistIT]
+
 type ProofElements* = object
   Cis*:                        seq[Point]
   Zis*:                        seq[int]
@@ -37,7 +39,7 @@ type ProofElements* = object
   Fis*:                        seq[seq[Field]]
   Vals*:                       seq[seq[byte]]
   CommByPath*:                 Table[string, Point]
-  cisZisTup*:                  Table[Point, Table[int, bool]]
+  cisZisTup*:                  CisZisTup
 
 #########################################################################
 #

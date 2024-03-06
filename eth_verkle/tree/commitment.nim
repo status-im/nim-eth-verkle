@@ -11,7 +11,7 @@
 
 import
   std/[tables, sequtils],
-  ../[utils, math, config],
+  ../[utils, math, upstream, config],
   ./tree
 
 {.push warning[DotLikeOps]: off.}

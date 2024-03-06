@@ -9,7 +9,7 @@
 
 import
   std/[sequtils, sugar],
-  ".."/[utils, math, config],
+  ".."/[utils, math, upstream, config],
   ./tree,
   ./commitment
 
