@@ -10,11 +10,17 @@ import
   algorithm,
   tables,
   ../[math, encoding],
+  ../../../constantine/constantine/hashes,
   ../../../constantine/constantine/
   [
     ethereum_verkle_trees, 
     ethereum_verkle_primitives
   ],
+  ../../../constantine/constantine/platforms/primitives,
+  ../../../constantine/constantine/math/elliptic/ec_twistededwards_projective,
+  ../../../constantine/constantine/math/arithmetic,
+  ../../../constantine/constantine/math/config/curves,
+  ../../../constantine/constantine/math/io/[io_bigints, io_fields],
   ../[encoding, math],
   ../err/verkle_error,
   ../tree/[tree, operations],
@@ -176,10 +182,18 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
   
   (pEl, es, poass, postvals, check) = getProofElementsFromTree(preroot, postroot, keys)
 
-  # var config {.noInit.}: IPASettings
-  # config.genIPAConfig()
+  var config {.noInit.}: IPASettings
+  discard config.genIPAConfig()
 
-  # var tr {.noInit.}: sha256
+  var tr {.noInit.}: sha256
+  tr.newTranscriptGen(asBytes"vt")
+
+  var mprv {.noInit.}: MultiProof
+  var checks = false
+  var cis {.noInit.}: seq[EC_P]
+  var fis {.noInit.}: array[VerkleDomain, array[VerkleDomain, Fr[Banderwagon]]]
+  checks = mprv.createMultiProof
+
 
 
 

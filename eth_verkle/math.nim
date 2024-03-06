@@ -22,10 +22,10 @@ import
 export finite_fields.`==`
 
 type
-  Bytes32* = eth_verkle_constants.Bytes
+  Bytes32* = Bytes
     ## A 32-bytes blob that can represent a verkle key or value
   Field* = Fr[Banderwagon]
-  Point* = eth_verkle_constants.EC_P
+  Point* = EC_P
 
 
 # Todo: can this be converted to a const?

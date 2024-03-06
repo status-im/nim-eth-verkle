@@ -32,12 +32,12 @@ type KeyList* = seq[seq[byte]]
 
 type ProofElements* = object
   Cis*:                        seq[Point]
-  Zis*:                        seq[byte]
+  Zis*:                        seq[int]
   Yis*:                        seq[Field]
   Fis*:                        seq[seq[Field]]
   Vals*:                       seq[seq[byte]]
   CommByPath*:                 Table[string, Point]
-  cisZisTup*:                  Table[Point, Table[uint8, bool]]
+  cisZisTup*:                  Table[Point, Table[int, bool]]
 
 #########################################################################
 #
@@ -83,21 +83,22 @@ proc hexComparator* (x,y: string): int=
 
 func mergeProofElements* (res: var ProofElements, other: var ProofElements)=
   if res.cisZisTup.len == 0:
-    for i, ci in res.Cis:
-      if res.cisZisTup.hasKey(ci).bool() == false:
-        res.cisZisTup[ci] = initTable[uint8, bool]()
-      res.cisZisTup[ci][res.Zis[i]] = true
+    for i in 0 ..< res.Cis.len:
+      var resCis = res.Cis[i]
+      if not res.cisZisTup.hasKey(resCis):
+        res.cisZisTup[res.Cis[i]] = initTable[int, bool]()
+      res.cisZisTup[res.Cis[i]][res.Zis[i]] = true
 
-  for i, ci in other.Cis:
-    
-    if res.cisZisTup.hasKey(ci).bool() == false:
-      res.cisZisTup[ci] = initTable[byte, bool]()
+  for i in 0 ..< other.Cis.len:
+    var otherCis = other.Cis[i]
+    if not res.cisZisTup.hasKey(otherCis):
+      res.cisZisTup[other.Cis[i]] = initTable[int, bool]()
 
-    if res.cisZisTup[ci].hasKey(other.Zis[i]).bool() == true:
+    if res.cisZisTup[other.Cis[i]].hasKey(other.Zis[i]):
       continue
 
-    res.cisZisTup[ci][other.Zis[i]] = true
-    res.Cis.add(ci)
+    res.cisZisTup[other.Cis[i]][other.Zis[i]] = true
+    res.Cis.add(other.Cis[i])
     res.Zis.add(other.Zis[i])
 
     if res.Fis.len > 0:
@@ -173,6 +174,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   pElem.Fis = @[]
   pElem.Vals = @[]
   pElem.CommByPath = initTable[string, Point]()
+  pElem.cisZisTup = initTable[Point, Table[int, bool]]()
 
   var fi: array[VerkleDomain, Field]
   var points: array[VerkleDomain, Point]
@@ -202,7 +204,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     yi = fi[childIdx]
 
     pElem.Cis.add(n.commitment)
-    pElem.Zis.add(childIdx)
+    pElem.Zis.add(int(childIdx))
     pElem.Yis.add(yi)
     for i in 0 ..< pElem.Fis.len:
       pElem.Fis[i].add(fi)
@@ -237,6 +239,12 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
       continue
 
     var pElemAdd: ProofElements
+    pElemAdd.Cis = @[]
+    pElemAdd.Zis = @[]
+    pElemAdd.Fis = @[]
+    pElemAdd.Vals = @[]
+    pElemAdd.CommByPath = initTable[string, Point]()
+    pElemAdd.cisZisTup = initTable[Point, Table[int, bool]]()
     var extStatuses2: seq[byte]
     var other: seq[seq[byte]]
     var check = false
