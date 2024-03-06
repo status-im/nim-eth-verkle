@@ -22,12 +22,6 @@ import
 export finite_fields.`==`
 
 
-# Todo: can this be converted to a const?
-var IdentityPoint*: Point
-IdentityPoint.x.setZero()
-IdentityPoint.y.setOne()
-IdentityPoint.z.setOne()
-
 var ipaConfig: IPASettings
 discard ipaConfig.genIPAConfig()
 

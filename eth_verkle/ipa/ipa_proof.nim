@@ -17,6 +17,7 @@ import
   ../../../constantine/constantine/platforms/primitives,
   ../../../constantine/constantine/math/elliptic/ec_twistededwards_projective,
   ../../../constantine/constantine/math/arithmetic,
+  ../../../constantine/constantine/math/config/curves,
   ../../../constantine/constantine/math/io/[io_bigints, io_fields],
   ../[encoding, math, upstream],
   ../err/verkle_error,
@@ -188,14 +189,10 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
   var mprv {.noInit.}: MultiProof
   var checks = false
   var cis {.noInit.}: seq[EC_P]
-  var fis {.noInit.}: array[VerkleDomain, array[VerkleDomain, Fr[Banderwagon]]]
+  var fis: array[VerkleDomain, array[VerkleDomain, Field]]
 
   for i in 0 ..< pEl.Cis.len:
     cis[i] = pEl.Cis[i]
-
-  for i in 0 ..< VerkleDomain:
-    for j in 0 ..< VerkleDomain:
-      fis[i][j].setZero()
 
   for i in 0 ..< VerkleDomain:
     for j in 0 ..< VerkleDomain:

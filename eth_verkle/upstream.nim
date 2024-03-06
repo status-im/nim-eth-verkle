@@ -20,5 +20,12 @@ type
   Field* = Fr[Banderwagon]
   Point* = EC_P
 
+# Todo: can this be converted to a const?
+var IdentityPoint*: Point
+IdentityPoint.x.setZero()
+IdentityPoint.y.setOne()
+IdentityPoint.z.setOne()
+
 export
   ethereum_verkle_trees
+
