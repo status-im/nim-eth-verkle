@@ -35,16 +35,11 @@ IdentityPoint.y.setOne()
 IdentityPoint.z.setOne()
 
 var ipaConfig: IPASettings
-var ipaTranscript: IpaTranscript[sha256, 32]
-discard ipaConfig.genIPAConfig(ipaTranscript)
-
-var basisPoints : array[256, EC_P]
-basisPoints.generate_random_points(ipaTranscript, 256)
-
+discard ipaConfig.genIPAConfig()
 
 proc ipaCommitToPoly*(poly: array[256, Field]): Point =
   var comm: Point
-  comm.pedersen_commit_varbasis(basisPoints, basisPoints.len, poly, poly.len)
+  comm.pedersen_commit_varbasis(ipaConfig.SRS, ipaConfig.SRS.len, poly, poly.len)
   return comm
 
 
