@@ -68,13 +68,13 @@ func mergeProofElements* (res: var ProofElements, other: var ProofElements)=
   if res.cisZisTup.len == 0:
     for i in 0 ..< res.Cis.len:
       var resCis = res.Cis[i]
-      if not res.cisZisTup.hasKey(resCis):
+      if res.cisZisTup.hasKey(resCis) != true:
         res.cisZisTup[res.Cis[i]] = initTable[int, bool]()
       res.cisZisTup[res.Cis[i]][res.Zis[i]] = true
 
   for i in 0 ..< other.Cis.len:
     var otherCis = other.Cis[i]
-    if not res.cisZisTup.hasKey(otherCis):
+    if res.cisZisTup.hasKey(otherCis) != false:
       res.cisZisTup[other.Cis[i]] = initTable[int, bool]()
 
     if res.cisZisTup[other.Cis[i]].hasKey(other.Zis[i]):

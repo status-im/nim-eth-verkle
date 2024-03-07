@@ -26,9 +26,6 @@ type
 
 type KeyList* = seq[seq[byte]]
 
-type ZisExistIT = Table[int, bool]
-type CisZisTup =Table[EC_P, ZisExistIT]
-
 type ProofElements* = object
   Cis*:                        seq[EC_P]
   Zis*:                        seq[int]
@@ -36,7 +33,7 @@ type ProofElements* = object
   Fis*:                        seq[seq[Fr[Banderwagon]]]
   Vals*:                       seq[seq[byte]]
   CommByPath*:                 Table[string, EC_P]
-  cisZisTup*:                  CisZisTup
+  cisZisTup*:                  Table[EC_P, Table[int, bool]]
 
 #########################################################################
 #
