@@ -11,16 +11,19 @@
 import
   upstream,
   ../constantine/constantine/serialization/[codecs_banderwagon, codecs_status_codes],
-  ../constantine/constantine/eth_verkle_ipa/eth_verkle_constants,
-  ../constantine/constantine/hashes,
   ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
-  ../constantine/constantine/math/arithmetic,
+  ../constantine/constantine/math/arithmetic/finite_fields,
   ../constantine/constantine/math/config/curves,
   ../constantine/constantine/math/io/[io_bigints, io_fields],
   ../constantine/constantine/ethereum_verkle_primitives
 
 export finite_fields.`==`
 
+
+var IdentityPoint*: Point
+IdentityPoint.x.setZero()
+IdentityPoint.y.setOne()
+IdentityPoint.z.setOne()
 
 var ipaConfig: IPASettings
 discard ipaConfig.genIPAConfig()

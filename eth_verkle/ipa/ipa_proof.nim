@@ -9,20 +9,12 @@ import
   verkle_proof_utils,
   algorithm,
   tables,
-  ../../../constantine/constantine/hashes,
-  ../../../constantine/constantine/
-  [
-    ethereum_verkle_primitives
-  ],
   ../../../constantine/constantine/platforms/primitives,
-  ../../../constantine/constantine/math/elliptic/ec_twistededwards_projective,
-  ../../../constantine/constantine/math/arithmetic,
-  ../../../constantine/constantine/math/config/curves,
-  ../../../constantine/constantine/math/io/[io_bigints, io_fields],
-  ../[encoding, math, upstream],
+  ../../../constantine/constantine/math/io/[io_fields],
+  ../[math, upstream],
   ../err/verkle_error,
   ../tree/[tree, operations],
-  ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes]
+  ../../../constantine/constantine/serialization/[codecs]
 
 #########################################################################
 #
@@ -84,7 +76,7 @@ type StemStateDiff* = object
 
 type StateDiff* = seq[StemStateDiff]
 
-func loadStateDiff* (res: var StateDiff, inp: StateDiff)=
+proc loadStateDiff* (res: var StateDiff, inp: StateDiff)=
   for i in 0 ..< inp.len:
     var auxStem {.noInit.}: seq[byte]
     auxStem.add(inp[i].Stem)
@@ -164,7 +156,7 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   ## 3: values to be inserted in the post-state trie for serialization
   return (pEl, es, poass, postvals, true)
 
-proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[Field], seq[byte], bool)=
+proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[Field], seq[int], bool)=
 
   var pEl: ProofElements
   pEl.Cis = @[]
@@ -186,9 +178,7 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
   var tr {.noInit.}: sha256
   tr.newTranscriptGen(asBytes"vt")
 
-  var mprv {.noInit.}: MultiProof
-  var checks = false
-  var cis {.noInit.}: seq[EC_P]
+  var cis {.noInit.}: seq[Point]
   var fis: array[VerkleDomain, array[VerkleDomain, Field]]
 
   for i in 0 ..< pEl.Cis.len:
@@ -198,10 +188,38 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
     for j in 0 ..< VerkleDomain:
       fis[i][j] = pEl.Fis[i][j]
 
-
+  var mprv: MultiProof
+  var checks: bool
   checks = mprv.createMultiProof(tr, config, pEl.Cis, fis, pEl.Zis)
 
+  var paths = newSeq[string](pEl.CommByPath.len - 1)
+  for path, point in pEl.CommByPath:
+    if path.len > 0:
+      paths.add(path)
 
+  paths.sort(hexComparator)
+  var cis2 = newSeq[Point](pEl.CommByPath.len - 1)
+  for i in 0 ..< paths.len:
+    cis2[i] = pEl.CommByPath[paths[i]]
 
+  var vktproofutils: VerkleProofUtils
+  vktproofutils.Multipoint = mprv
+  vktproofutils.Cs = cis2
+  vktproofutils.ExtensionStatus = es
+  vktproofutils.PoaStems = poass
+  vktproofutils.Keys = keys
+  vktproofutils.PreStateValues = pEl.Vals
+  vktproofutils.PostStateValues = postvals
 
+  return (vktproofutils, pEl.Cis, pEl.Yis, pEl.Zis, true)
+
+proc VerifyVerkleProofWithPreState* (proof: var VerkleProofUtils, preroot: var BranchesNode): bool =
+  var pElm: ProofElements
+  var check = false
+  var p0: seq[byte]
+  var p1,p2: seq[seq[byte]]
+
+  var post {.noInit.}: BranchesNode
+
+  (pElm, p0, p1, p2, check) = getProofElementsFromTree(preroot, post, proof.Keys)
 

@@ -9,10 +9,10 @@
 ##  obtained from the Constantine library
 
 import
+  ../constantine/constantine/hashes,
   ../constantine/constantine/ethereum_verkle_trees,
-  ../constantine/constantine/math/arithmetic,
-  ../constantine/constantine/math/config/curves,
-  ../constantine/constantine/math/io/[io_bigints, io_fields]
+  ../constantine/constantine/math/arithmetic/finite_fields,
+  ../constantine/constantine/math/config/curves
 
 type
   Bytes32* = Bytes
@@ -20,12 +20,14 @@ type
   Field* = Fr[Banderwagon]
   Point* = EC_P
 
-# Todo: can this be converted to a const?
-var IdentityPoint*: Point
-IdentityPoint.x.setZero()
-IdentityPoint.y.setOne()
-IdentityPoint.z.setOne()
-
 export
   ethereum_verkle_trees
+
+export
+  hashes
+
+export
+  Bytes32,
+  Field,
+  Point
 
