@@ -11,7 +11,7 @@
 import
   ../constantine/constantine/hashes,
   ../constantine/constantine/ethereum_verkle_trees,
-  ../constantine/constantine/math/arithmetic/finite_fields,
+  ../constantine/constantine/math/arithmetic,
   ../constantine/constantine/math/config/curves
 
 type
@@ -24,7 +24,8 @@ export
   ethereum_verkle_trees
 
 export
-  hashes
+  hashes,
+  arithmetic
 
 export
   Bytes32,
