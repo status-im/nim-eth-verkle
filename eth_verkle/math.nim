@@ -12,7 +12,7 @@ import
   upstream,
   ../constantine/constantine/serialization/[codecs_banderwagon, codecs_status_codes],
   ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
-  ../constantine/constantine/math/arithmetic/finite_fields,
+  ../constantine/constantine/math/arithmetic,
   ../constantine/constantine/math/config/curves,
   ../constantine/constantine/math/io/[io_bigints, io_fields],
   ../constantine/constantine/ethereum_verkle_primitives
