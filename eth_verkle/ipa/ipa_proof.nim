@@ -16,66 +16,6 @@ import
   ../tree/[tree, operations],
   ../../../constantine/constantine/serialization/[codecs]
 
-#########################################################################
-#
-#  Verkle Proof Types required to Interface Eth Verkle IPA in Constantine
-#
-#########################################################################
-
-const IpaProofDepth*: int = 8
-
-type IPAProofVkt* = object
-  C_L: array[IpaProofDepth, array[32, byte]]
-  C_R: array[IpaProofDepth, array[32, byte]]
-  FinalEval: array[32, byte]
-
-#########################################################
-#
-#  Helper types to rebuild the partial view of the tree
-#
-#########################################################
-
-type VerkleProof* = object
-  ## OtherStems stores the stems to which the leaf notes don't match initially in a Proof of Presence check.
-  ## DepthExtensionPresent stores the depth to which the leaf is present
-  ## Corresponding to a branch of the partial view
-  ## CommitmentsByPath is a DFS-style walk of the Verkle Trie with each required commitment
-  ## D + IPAProof is everything that the verifier needs to ensure that the partial view of
-  ## The trie that is built is indeed correct.
-  OtherStems*: seq[array[32, byte]]
-  DepthExtensionPresent*: seq[byte]
-  CommitmentsByPath*: seq[array[32, byte]]
-  D*: array[32, byte]
-  IPAProofPView*: IPAProofVkt 
-
-type VerkleProofUtils* = object
-  ## Multipoint argument
-  ## ExtentionStatus for each stem
-  ## Commitments sorted lexicographically by their path in the tree
-  ## Stems proving the `to be proved` stem is absent
-  Multipoint*: MultiProof
-  ExtensionStatus*: seq[byte]
-  Cs*: seq[Point]
-  PoaStems*: seq[seq[byte]]
-  Keys*: seq[seq[byte]]
-  PreStateValues*: seq[seq[byte]]
-  PostStateValues*: seq[seq[byte]]
-
-type SuffixStateDiff* = object
-  Suffix*: uint8
-  CurrentVal*: var array[32, byte]
-  NewVal*: array[32, byte]
-
-type SuffixStateDiffs* = var seq[SuffixStateDiff]
-
-const StemSize*: int = 31
-
-type StemStateDiff* = object
-  Stem*: seq[byte]
-  SuffixDiffsInVKT*: SuffixStateDiffs
-
-type StateDiff* = seq[StemStateDiff]
-
 proc loadStateDiff* (res: var StateDiff, inp: StateDiff)=
   for i in 0 ..< inp.len:
     var auxStem {.noInit.}: seq[byte]
@@ -107,7 +47,7 @@ proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList): (
   pEl.Zis = @[]
   pEl.Fis = @[]
   pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, Point]()
+  pEl.CommByPath = initTable[string, EC_P]()
 
   var outs: seq[byte]
   var outStem: seq[seq[byte]]
@@ -125,7 +65,7 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   pEl.Zis = @[]
   pEl.Fis = @[]
   pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, Point]()
+  pEl.CommByPath = initTable[string, EC_P]()
 
   if keys.len == 0:
     return (pEl, @[], @[@[]], @[@[]], false)
@@ -156,14 +96,14 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   ## 3: values to be inserted in the post-state trie for serialization
   return (pEl, es, poass, postvals, true)
 
-proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[Field], seq[int], bool)=
+proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[EC_P], seq[Fr[Banderwagon]], seq[int], bool)=
 
   var pEl: ProofElements
   pEl.Cis = @[]
   pEl.Zis = @[]
   pEl.Fis = @[]
   pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, Point]()
+  pEl.CommByPath = initTable[string, EC_P]()
 
   var es: seq[byte]
   var poass: seq[seq[byte]]
@@ -178,8 +118,8 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
   var tr {.noInit.}: sha256
   tr.newTranscriptGen(asBytes"vt")
 
-  var cis {.noInit.}: seq[Point]
-  var fis: array[VerkleDomain, array[VerkleDomain, Field]]
+  var cis {.noInit.}: seq[EC_P]
+  var fis: array[VerkleDomain, array[VerkleDomain, Fr[Banderwagon]]]
 
   for i in 0 ..< pEl.Cis.len:
     cis[i] = pEl.Cis[i]
@@ -188,7 +128,7 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
     for j in 0 ..< VerkleDomain:
       fis[i][j] = pEl.Fis[i][j]
 
-  var mprv: MultiProof
+  var mprv {.noInit.}: MultiProof
   var checks: bool
   checks = mprv.createMultiProof(tr, config, pEl.Cis, fis, pEl.Zis)
 
@@ -198,7 +138,7 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
       paths.add(path)
 
   paths.sort(hexComparator)
-  var cis2 = newSeq[Point](pEl.CommByPath.len - 1)
+  var cis2 = newSeq[EC_P](pEl.CommByPath.len - 1)
   for i in 0 ..< paths.len:
     cis2[i] = pEl.CommByPath[paths[i]]
 

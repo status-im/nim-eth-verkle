@@ -24,25 +24,6 @@ import
 
 #########################################################################
 #
-#                 Verkle Proof Items and it's Utilities
-#
-#########################################################################
-type KeyList* = seq[seq[byte]]
-
-type ZisExistIT = Table[int, bool]
-type CisZisTup =Table[Point, ZisExistIT]
-
-type ProofElements* = object
-  Cis*:                        seq[Point]
-  Zis*:                        seq[int]
-  Yis*:                        seq[Field]
-  Fis*:                        seq[seq[Field]]
-  Vals*:                       seq[seq[byte]]
-  CommByPath*:                 Table[string, Point]
-  cisZisTup*:                  CisZisTup
-
-#########################################################################
-#
 #                     Utilities to Sort Keylists
 #
 #########################################################################
@@ -175,11 +156,11 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   pElem.Zis = @[]
   pElem.Fis = @[]
   pElem.Vals = @[]
-  pElem.CommByPath = initTable[string, Point]()
-  pElem.cisZisTup = initTable[Point, Table[int, bool]]()
+  pElem.CommByPath = initTable[string, EC_P]()
+  pElem.cisZisTup = initTable[EC_P, Table[int, bool]]()
 
-  var fi: array[VerkleDomain, Field]
-  var points: array[VerkleDomain, Point]
+  var fi: array[VerkleDomain, Fr[Banderwagon]]
+  var points: array[VerkleDomain, EC_P]
 
   for i in 0 ..< n.branches.len:
     var child = n.branches[i]
@@ -202,7 +183,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   for i in 0 ..< groups.len:
     var childIdx = offsetKey(groups[0][i], n.depth)
 
-    var yi: Field 
+    var yi: Fr[Banderwagon] 
     yi = fi[childIdx]
 
     pElem.Cis.add(n.commitment)
@@ -245,8 +226,8 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     pElemAdd.Zis = @[]
     pElemAdd.Fis = @[]
     pElemAdd.Vals = @[]
-    pElemAdd.CommByPath = initTable[string, Point]()
-    pElemAdd.cisZisTup = initTable[Point, Table[int, bool]]()
+    pElemAdd.CommByPath = initTable[string, EC_P]()
+    pElemAdd.cisZisTup = initTable[EC_P, Table[int, bool]]()
     var extStatuses2: seq[byte]
     var other: seq[seq[byte]]
     var check = false
