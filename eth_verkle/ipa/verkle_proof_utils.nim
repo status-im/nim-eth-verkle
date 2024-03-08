@@ -67,20 +67,22 @@ proc hexComparator* (x,y: string): int=
 func mergeProofElements* (res: var ProofElements, other: var ProofElements)=
   if res.cisZisTup.len == 0:
     for i in 0 ..< res.Cis.len:
-      var resCis = res.Cis[i]
+      var resCis: Bytes32
+      resCis = serializePoint(res.Cis[i])
       if res.cisZisTup.hasKey(resCis) != true:
-        res.cisZisTup[res.Cis[i]] = initTable[int, bool]()
-      res.cisZisTup[res.Cis[i]][res.Zis[i]] = true
+        res.cisZisTup[resCis] = initTable[int, bool]()
+      res.cisZisTup[resCis][res.Zis[i]] = true
 
   for i in 0 ..< other.Cis.len:
-    var otherCis = other.Cis[i]
+    var otherCis: Bytes32
+    otherCis = serializePoint(other.Cis[i])
     if res.cisZisTup.hasKey(otherCis) != false:
-      res.cisZisTup[other.Cis[i]] = initTable[int, bool]()
+      res.cisZisTup[otherCis] = initTable[int, bool]()
 
-    if res.cisZisTup[other.Cis[i]].hasKey(other.Zis[i]):
+    if res.cisZisTup[otherCis].hasKey(other.Zis[i]):
       continue
 
-    res.cisZisTup[other.Cis[i]][other.Zis[i]] = true
+    res.cisZisTup[otherCis][other.Zis[i]] = true
     res.Cis.add(other.Cis[i])
     res.Zis.add(other.Zis[i])
 
@@ -157,7 +159,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   pElem.Fis = @[]
   pElem.Vals = @[]
   pElem.CommByPath = initTable[string, EC_P]()
-  pElem.cisZisTup = initTable[EC_P, Table[int, bool]]()
+  pElem.cisZisTup = initTable[Bytes32, Table[int, bool]]()
 
   var fi: array[VerkleDomain, Fr[Banderwagon]]
   var points: array[VerkleDomain, EC_P]
@@ -227,7 +229,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     pElemAdd.Fis = @[]
     pElemAdd.Vals = @[]
     pElemAdd.CommByPath = initTable[string, EC_P]()
-    pElemAdd.cisZisTup = initTable[EC_P, Table[int, bool]]()
+    pElemAdd.cisZisTup = initTable[Bytes32, Table[int, bool]]()
     var extStatuses2: seq[byte]
     var other: seq[seq[byte]]
     var check = false

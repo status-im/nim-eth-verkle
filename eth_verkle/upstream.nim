@@ -33,7 +33,7 @@ type ProofElements* = object
   Fis*:                        seq[seq[Fr[Banderwagon]]]
   Vals*:                       seq[seq[byte]]
   CommByPath*:                 Table[string, EC_P]
-  cisZisTup*:                  Table[EC_P, Table[int, bool]]
+  cisZisTup*:                  Table[Bytes32, Table[int, bool]]
 
 #########################################################################
 #
