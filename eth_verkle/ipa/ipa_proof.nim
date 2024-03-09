@@ -218,6 +218,8 @@ proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, S
       var stemDiffInter {.noInit.}: StemStateDiff
       stateDiff.add(stemDiffInter)
 
+      stemDiff = stateDiff[stateDiff.len - 1]
+
       for j in 0 ..< stemDiff.Stem.len:
         stemDiff.Stem[j] = stem[j]
 
@@ -225,4 +227,44 @@ proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, S
     suffixStateDiffInter.Suffix = proof.Keys[i][StemSize]
 
     stemDiff.SuffixDiffsInVKT.add(suffixStateDiffInter)
+    var newsd: SuffixStateDiff
+    newsd = stemDiff.SuffixDiffsInVKT[stemDiff.SuffixDiffsInVKT.len - 1]
+
+    var valueLen = proof.PreStateValues[i].len
+
+    case valueLen
+    of 0:
+      discard
+    of 32:
+      for k in 0 ..< newsd.CurrentVal.len:
+        newsd.CurrentVal[k] = proof.PreStateValues[i][k]
+    else:
+      var alignedBytes: array[32, byte]
+      for k in 0 ..< valueLen:
+        alignedBytes[k] = proof.PreStateValues[i][k]
+      for k in 0 ..< newsd.CurrentVal.len:
+        newsd.CurrentVal[k] = alignedBytes[k]
+      
+    valueLen = proof.PostStateValues[i].len
+
+    case valueLen
+    of 0:
+      discard
+    of 32:
+      for k in 0 ..< newsd.NewVal.len:
+        newsd.NewVal[k] = proof.PostStateValues[i][k]
+    else:
+      var alignedBytes: array[32, byte]
+      for k in 0 ..< valueLen:
+        alignedBytes[k] = proof.PostStateValues[i][k]
+      for k in 0 ..< newsd.NewVal.len:
+        newsd.NewVal[k] = alignedBytes[k]
+      
+    
+  
+
+      
+
+
+
 
