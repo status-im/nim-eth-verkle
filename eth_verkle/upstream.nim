@@ -82,12 +82,13 @@ type VerkleProofUtils* = object
 
 type SuffixStateDiff* = object
   Suffix*: uint8
-  CurrentVal*: var array[32, byte]
+  CurrentVal*: array[32, byte]
   NewVal*: array[32, byte]
 
-type SuffixStateDiffs* = var seq[SuffixStateDiff]
+type SuffixStateDiffs* = seq[SuffixStateDiff]
 
 const StemSize*: int = 31
+type Stem* = array[StemSize, byte]
 
 type StemStateDiff* = object
   Stem*: seq[byte]

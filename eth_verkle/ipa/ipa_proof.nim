@@ -153,7 +153,16 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
 
   return (vktproofutils, pEl.Cis, pEl.Yis, pEl.Zis, true)
 
-proc VerifyVerkleProofWithPreState* (proof: var VerkleProofUtils, preroot: var BranchesNode): bool =
+proc verifyVerkleProof* (proof: var VerkleProofUtils, config: IPASettings, Cs: var openArray[EC_P], indices: var openArray[int], ys: var openArray[Fr[Banderwagon]]): bool =
+  var tr {.noInit.}: sha256
+  tr.newTranscriptGen(asBytes"vt")
+  var checker = false
+  checker = proof.Multipoint.verifyMultiproof(tr, config, Cs, ys, indices)
+
+  return checker
+
+proc verifyVerkleProofWithPreState* (config:IPASettings, proof: var VerkleProofUtils, preroot: var BranchesNode): bool =
+  # verifyVerkleProofWithPreState takes a proof and a trusted tree root and verifies that the proof is valid
   var pElm: ProofElements
   var check = false
   var p0: seq[byte]
@@ -162,4 +171,58 @@ proc VerifyVerkleProofWithPreState* (proof: var VerkleProofUtils, preroot: var B
   var post {.noInit.}: BranchesNode
 
   (pElm, p0, p1, p2, check) = getProofElementsFromTree(preroot, post, proof.Keys)
+
+  discard p0
+  discard p1
+  discard p2
+
+  var checker = false
+  checker = verifyVerkleProof(proof, config, pElm.Cis, pElm.Zis, pElm.Yis)
+
+  return checker
+
+proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, StateDiff, bool)=
+  ## serializeToExecutionWitness converts from VerkelProofUtils to the standardized
+  ## ExecutionWitness Format:
+  ##  - StateDiff
+  ##  - VerkleProof
+  ## 
+  ## Therefore this function is useful in constructing the StateDiff
+  ## from ExtensionStatuses and CommitmentsByPath
+  ## 
+  ## The serialization format is similar to Rust-Verkle:
+  ## * len(Proof of absence stem) || Proof of absence stems
+  ## * len(depths) || serialize(depth || extension status [i])
+  ## * len(commitments || serialize(commitments)
+  ## * Multipoint proof
+  ## 
+  var otherStems = newSeq[Stem](proof.PoaStems.len)
+
+  for i in 0 ..< proof.PoaStems.len:
+    for j in 0 ..< StemSize:
+      otherStems[i][j] = proof.PoaStems[i][j]
+
+  var cbp = newSeq[Bytes32](proof.Cs.len)
+  for i in 0 ..< proof.Cs.len:
+    var serializedCs: array[32, byte]
+    serializedCs = serializePoint(proof.Cs[i])
+    for j in 0 ..< 32:
+      cbp[i][j] = serializedCs[j]
+
+  var stemDiff {.noInit.}: StemStateDiff
+  var stateDiff: StateDiff
+
+  for i in 0 ..< proof.Keys.len:
+    var stem = keyToStem(proof.Keys[i])
+    if stemDiff.Stem != stem:
+      var stemDiffInter {.noInit.}: StemStateDiff
+      stateDiff.add(stemDiffInter)
+
+      for j in 0 ..< stemDiff.Stem.len:
+        stemDiff.Stem[j] = stem[j]
+
+    var suffixStateDiffInter {.noInit.}: SuffixStateDiff
+    suffixStateDiffInter.Suffix = key[StemSize]
+
+    stemDiff.SuffixDiffsInVKT.add(suffixStateDiffInter)
 
