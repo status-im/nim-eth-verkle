@@ -259,11 +259,55 @@ proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, S
         alignedBytes[k] = proof.PostStateValues[i][k]
       for k in 0 ..< newsd.NewVal.len:
         newsd.NewVal[k] = alignedBytes[k]
-      
-    
-  
 
-      
+  
+  var D_bytes {.noInit.}: array[32, byte]
+  var A_bytes {.noInit.}: array[32, byte]
+  var cl_bytes {.noInit.}: array[8, array[32, byte]]
+  var cr_bytes {.noInit.}: array[8, array[32, byte]]
+
+  var serializedVerkleMultiproof {.noInit.}: VerkleMultiproofSerialized
+
+  var checker = false
+  checker = serializedVerkleMultiproof.serializeVerkleMultiproof(proof.Multipoint)
+
+  var idx = 0
+  for i in 0 ..< 576:
+    D_bytes[idx] = serializedVerkleMultiproof[i]
+    inc(idx)
+  
+  idx = 32
+  for i in 0 ..< 8:
+    for j in 0 ..< 32:
+      cl_bytes[i][j] = serializedVerkleMultiproof[idx]
+      inc(idx)
+
+  idx = 288
+  for i in 0 ..< 8:
+    for j in 0 ..< 32:
+      cr_bytes[i][j] = serializedVerkleMultiproof[idx]
+      inc(idx)
+
+  
+  idx = 0
+  for i in 544 ..< 576:
+    A_bytes[idx] = serializedVerkleMultiproof[i]
+    inc(idx)
+
+  var ipaProofVKT {.noInit.}: IPAProofVkt
+  ipaProofVKT.C_L = cl_bytes
+  ipaProofVKT.C_R = cr_bytes
+  ipaProofVKT.FinalEval = A_bytes
+
+  var verkleProof {.noInit.}: VerkleProof
+  verkleProof.CommitmentsByPath = cbp
+  verkleProof.OtherStems = otherStems
+  verkleProof.DepthExtensionPresent = proof.ExtensionStatus
+  verkleProof.D = D_bytes
+  verkleProof.IPAProofPView = ipaProofVKT
+
+  return (verkleProof, stateDiff, true)
+
 
 
 

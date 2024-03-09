@@ -44,9 +44,9 @@ type ProofElements* = object
 const IpaProofDepth*: int = 8
 
 type IPAProofVkt* = object
-  C_L: array[IpaProofDepth, array[32, byte]]
-  C_R: array[IpaProofDepth, array[32, byte]]
-  FinalEval: array[32, byte]
+  C_L*: array[IpaProofDepth, array[32, byte]]
+  C_R*: array[IpaProofDepth, array[32, byte]]
+  FinalEval*: array[32, byte]
 
 #########################################################
 #
@@ -61,7 +61,7 @@ type VerkleProof* = object
   ## CommitmentsByPath is a DFS-style walk of the Verkle Trie with each required commitment
   ## D + IPAProof is everything that the verifier needs to ensure that the partial view of
   ## The trie that is built is indeed correct.
-  OtherStems*: seq[array[32, byte]]
+  OtherStems*: seq[array[31, byte]]
   DepthExtensionPresent*: seq[byte]
   CommitmentsByPath*: seq[array[32, byte]]
   D*: array[32, byte]
