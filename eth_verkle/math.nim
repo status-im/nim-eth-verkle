@@ -20,7 +20,7 @@ import
 export finite_fields.`==`
 
 
-var IdentityPoint*: Point
+var IdentityPoint*: EC_P
 IdentityPoint.x.setZero()
 IdentityPoint.y.setOne()
 IdentityPoint.z.setOne()
@@ -28,43 +28,43 @@ IdentityPoint.z.setOne()
 var ipaConfig: IPASettings
 discard ipaConfig.genIPAConfig()
 
-proc ipaCommitToPoly*(poly: array[256, Field]): Point =
-  var comm: Point
+proc ipaCommitToPoly*(poly: array[256, Fr[Banderwagon]]): EC_P =
+  var comm: EC_P
   comm.pedersen_commit_varbasis(ipaConfig.SRS, ipaConfig.SRS.len, poly, poly.len)
   return comm
 
 
-proc banderwagonMultiMapToScalarField*(fields: var openArray[Field], points: openArray[Point]) =
+proc banderwagonMultiMapToScalarField*(fields: var openArray[Fr[Banderwagon]], points: openArray[EC_P]) =
   fields.batchMapToScalarField(points)
 
 
-proc banderwagonMultiMapToScalarField*(fields: openArray[ptr Field], points: openArray[Point]) =
+proc banderwagonMultiMapToScalarField*(fields: openArray[ptr Fr[Banderwagon]], points: openArray[EC_P]) =
   var correctFields: seq[Fr[Banderwagon]] = @[]
   for field in fields:
-    correctFields.add(Fr[Banderwagon](field[]))  # Assuming Fr[Banderwagon] can be initialized from a Field
+    correctFields.add(Fr[Banderwagon](field[]))  # Assuming Fr[Banderwagon] can be initialized from a Fr[Banderwagon]
   correctFields.batchMapToScalarField(points)
   for i in 0..<correctFields.len:
     fields[i][] = correctFields[i]
 
 
-proc banderwagonAddPoint*(dst: var Point, src: Point) =
+proc banderwagonAddPoint*(dst: var EC_P, src: EC_P) =
   dst.sum(dst, src)
 
 
-proc bandesnatchSubtract*(x, y: Field): Field =
+proc bandesnatchSubtract*(x, y: Fr[Banderwagon]): Fr[Banderwagon] =
   result.diff(x, y)
 
 
 # SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
-proc bandesnatchSetUint64*(z: var Field, v: uint64) =
+proc bandesnatchSetUint64*(z: var Fr[Banderwagon], v: uint64) =
   z.fromInt(int(v))
 
 
-proc fromLEBytes*(field: var Field, data: openArray[byte]) =
+proc fromLEBytes*(field: var Fr[Banderwagon], data: openArray[byte]) =
   var temp{.noinit.}: matchingOrderBigInt(Banderwagon)
   temp.unmarshal(data, littleEndian)
   field.fromBig(temp)
   
 
-func serializePoint*(point: Point): Bytes32 =
+func serializePoint*(point: EC_P): Bytes32 =
   assert result.serialize(point) == CttCodecEccStatus.cttCodecEcc_Success

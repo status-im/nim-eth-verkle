@@ -222,7 +222,7 @@ proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, S
         stemDiff.Stem[j] = stem[j]
 
     var suffixStateDiffInter {.noInit.}: SuffixStateDiff
-    suffixStateDiffInter.Suffix = key[StemSize]
+    suffixStateDiffInter.Suffix = proof.Keys[i][StemSize]
 
     stemDiff.SuffixDiffsInVKT.add(suffixStateDiffInter)
 

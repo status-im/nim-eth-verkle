@@ -30,9 +30,9 @@ const
   LeafStemOffSet          = NodeTypeOffSet + NodeTypeSize
   LeafBitListOffSet       = LeafStemOffSet + 31              # 31 -> StemSize
   LeafCommitmentOffSet    = LeafBitListOffSet + BitListSize
-  LeafC1CommitmentOffSet  = LeafCommitmentOffSet + 64        # 64 -> Uncompressed Banderwagon Point Size
-  LeafC2CommitmentOffSet  = LeafC1CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon Point Size
-  LeafChildrenOffSet      = LeafC2CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon Point Size
+  LeafC1CommitmentOffSet  = LeafCommitmentOffSet + 64        # 64 -> Uncompressed Banderwagon EC_P Size
+  LeafC2CommitmentOffSet  = LeafC1CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon EC_P Size
+  LeafChildrenOffSet      = LeafC2CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon EC_P Size
 
   BranchNodeSerializationSize = NodeTypeSize + BitListSize + 64
 

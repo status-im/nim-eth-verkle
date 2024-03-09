@@ -16,7 +16,7 @@ import
 type
   Node* = ref object of RootObj
     ## Base node type
-    commitment*: Point
+    commitment*: EC_P
     depth*: uint8
 
   HashedNode* = ref Node
@@ -25,13 +25,13 @@ type
   BranchesNode* = ref object of Node
     ## Internal node in the tree that holds references to 256 child nodes (or nil-s)
     branches*: array[256, Node]
-    commitmentsSnapshot*: ref Table[byte, Point]
+    commitmentsSnapshot*: ref Table[byte, EC_P]
 
   ValuesNode* = ref object of Node
     ## Leaf node in the tree that holds references to 256 values (or nil-s)
     stem*:   array[31, byte]
     values*: array[256, ref Bytes32]
-    c1*, c2*: Point
+    c1*, c2*: EC_P
 
 
 
