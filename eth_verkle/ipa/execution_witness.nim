@@ -143,3 +143,23 @@ proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, S
   verkleProof.IPAProofPView = ipaProofVKT
 
   return (verkleProof, stateDiff, true)
+
+proc deserializeExecutionWitness* (vp: var VerkleProof, stateDiff: var StateDiff): (VerkleProofUtils, bool) =
+  ## DeserializeProof deserializes the proof found in blocks, into a format
+  ## that can be used to rebuild the stateless version of the tree, also this 
+  ## can termed as the `Partial View`
+  var keys: KeyList
+  var prevalues, postvalues: seq[seq[byte]]
+  var extStat: seq[byte]
+  var commitments: seq[EC_P]
+  var multipoint: MultiProof
+
+  var poaStems = newSeq[Stem](vp.OtherStems.len)
+  for i in 0 ..< vp.OtherStems.len:
+    for j in 0 ..< vp.OtherStems[i].len:
+      poaStems[i][j] = vp.OtherStems[i][j]
+
+  extStat = vp.DepthExtensionPresent
+  commitments = newSeq[EC_P](vp.CommitmentsByPath.len)
+
+
