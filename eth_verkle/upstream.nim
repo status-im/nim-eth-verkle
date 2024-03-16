@@ -81,7 +81,7 @@ type VerkleProofUtils* = object
   PostStateValues*: seq[seq[byte]]
 
 type SuffixStateDiff* = object
-  Suffix*: uint8
+  Suffix*: byte
   CurrentVal*: array[32, byte]
   NewVal*: array[32, byte]
 

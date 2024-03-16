@@ -68,14 +68,14 @@ func mergeProofElements* (res: var ProofElements, other: var ProofElements)=
   if res.cisZisTup.len == 0:
     for i in 0 ..< res.Cis.len:
       var resCis: Bytes32
-      resCis = serializePoint(res.Cis[i])
+      resCis = res.Cis[i].serializePoint()
       if res.cisZisTup.hasKey(resCis) != true:
         res.cisZisTup[resCis] = initTable[int, bool]()
       res.cisZisTup[resCis][res.Zis[i]] = true
 
   for i in 0 ..< other.Cis.len:
     var otherCis: Bytes32
-    otherCis = serializePoint(other.Cis[i])
+    otherCis = other.Cis[i].serializePoint()
     if res.cisZisTup.hasKey(otherCis) != false:
       res.cisZisTup[otherCis] = initTable[int, bool]()
 

@@ -15,7 +15,7 @@ import
   ../[math, upstream],
   ../err/verkle_error,
   ../tree/[tree, operations],
-  ../../../constantine/constantine/serialization/[codecs]
+  ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]
 
 proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, StateDiff, bool)=
   ## serializeToExecutionWitness converts from VerkelProofUtils to the standardized
@@ -41,7 +41,7 @@ proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, S
   var cbp = newSeq[Bytes32](proof.Cs.len)
   for i in 0 ..< proof.Cs.len:
     var serializedCs: array[32, byte]
-    serializedCs = serializePoint(proof.Cs[i])
+    serializedCs = proof.Cs[i].serializePoint()
     for j in 0 ..< 32:
       cbp[i][j] = serializedCs[j]
 
@@ -162,4 +162,59 @@ proc deserializeExecutionWitness* (vp: var VerkleProof, stateDiff: var StateDiff
   extStat = vp.DepthExtensionPresent
   commitments = newSeq[EC_P](vp.CommitmentsByPath.len)
 
+  for i in  0 ..< vp.CommitmentsByPath.len:
+    commitments[i] = vp.CommitmentsByPath[i].deserializePoint()
 
+  var aggregatedArray {.noInit.}: VerkleMultiproofSerialized
+
+  var idx = 0
+  for i in 0 ..< 32:
+    aggregatedArray[idx] = vp.D[i]
+    idx = idx + 1
+
+  for i in 0 ..< 8:
+    for j in  0 ..< 32:
+      aggregatedArray[idx] = vp.IPAProofPView.C_L[i][j]
+      idx = idx + 1
+  
+  for i in  0 ..< 8:
+    for j in  0 ..< 32:
+      aggregatedArray[idx] = vp.IPAProofPView.C_R[i][j]
+      idx = idx + 1
+
+  for i in 0 ..< 32:
+    aggregatedArray[idx] = vp.IPAProofPView.FinalEval[i] 
+
+  var check2 = false
+  check2 = multipoint.deserializeVerkleMultiproof(aggregatedArray)
+
+  for i in 0 ..< stateDiff.len:
+    for j in 0 ..< stateDiff[i].SuffixDiffsinVKT.len:
+      var k: Bytes32
+      for idx in 0 ..< StemSize:
+        k[idx] = stateDiff[i].Stem[idx]
+        k[StemSize] = stateDiff[i].SuffixDiffsInVKT[j].Suffix
+      keys[j].add(k)
+
+      if stateDiff[i].SuffixDiffsInVKT[j].CurrentVal.len != 0:
+        for counter in 0 ..< 32:
+          prevalues[j].add(stateDiff[i].SuffixDiffsInVKT[j].CurrentVal[counter])
+
+      if stateDiff[i].SuffixDiffsInVKT[j].NewVal.len != 0:
+        for counter in 0 ..< 32:
+          prevalues[j].add(stateDiff[i].SuffixDiffsInVKT[j].NewVal[counter])
+          
+  var vkProofUtils {.noInit.}: VerkleProofUtils
+  vkProofUtils.Multipoint = multipoint
+  vkProofUtils.ExtensionStatus = extStat
+  vkProofUtils.Cs = commitments
+
+  for i in 0 ..< vkProofUtils.PoaStems.len:
+    for j in 0 ..< vkProofUtils.PoaStems[i].len:
+      vkProofUtils.PoaStems[i][j] = poaStems[i][j]
+
+  vkProofUtils.Keys = keys
+  vkProofUtils.PreStateValues = prevalues
+  vkProofUtils.PostStateValues = postvalues
+
+  return (vkProofUtils, true)

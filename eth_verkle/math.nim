@@ -68,3 +68,6 @@ proc fromLEBytes*(field: var Fr[Banderwagon], data: openArray[byte]) =
 
 func serializePoint*(point: EC_P): Bytes32 =
   assert result.serialize(point) == CttCodecEccStatus.cttCodecEcc_Success
+
+func deserializePoint*(bytearr: var Bytes32): EC_P =
+  assert result.deserialize_vartime(bytearr) == CttCodecEccStatus.cttCodecEcc_Success
