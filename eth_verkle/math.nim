@@ -38,7 +38,7 @@ var ipaConfig: IPASettings
 discard ipaConfig.genIPAConfig()
 
 
-proc ipaCommitToPoly*(poly: array[256, Field]): Point =
+proc ipaCommitToPoly*(poly: openArray[Field]): Point =
   var comm: Point
   comm.pedersen_commit_varbasis(ipaConfig.SRS, ipaConfig.SRS.len, poly, poly.len)
   return comm
