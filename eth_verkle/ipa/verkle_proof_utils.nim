@@ -28,6 +28,18 @@ import
 #
 #########################################################################
 
+proc isStemSorted* (bytes: var seq[seq[byte]]): bool=
+  for row in bytes:
+    for i in 0 ..< row.len - 1:
+      if row[i] > row[i + 1]:
+        return false
+
+  for i in 0 ..< bytes.len - 1:
+    if bytes[i][^1] > bytes[i + 1][0]:
+      return false
+  
+  return true
+
 proc comparatorFor2DimArrays*(a, b: seq[byte]): int=
   var sumA = 0
   var sumB = 0
