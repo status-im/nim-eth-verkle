@@ -96,6 +96,13 @@ type StemStateDiff* = object
 
 type StateDiff* = seq[StemStateDiff]
 
+type 
+  StemInfo* = object
+    depth*, stemType*: byte
+    stat_c1*, stat_c2*: bool
+    values*: Table[byte, seq[byte]]
+    stem*: seq[byte]
+
 export
   ethereum_verkle_trees
 
