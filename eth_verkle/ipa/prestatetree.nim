@@ -20,6 +20,16 @@ import
   ../tree/[tree, operations],
   ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]
 
+proc NewStatelessBranchesNode (depth: var byte, comm: EC_P): BranchesNode =
+  var bnode: BranchesNode
+  bnode.depth = depth
+  bnode.commitment = comm
+
+  for i in 0 ..< bnode.branches.len:
+    bnode.branches[i] = new(Node)
+
+  return bnode
+
 proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var EC_P): (Option[BranchesNode], bool)=
   ## Constructing the Pre State tree, a stateless pre state tree from the VerkleProof
   doAssert vkp.Keys.len == vkp.PreStateValues.len, "Number of keys and the number of pre-state values should be EQUAL!"
