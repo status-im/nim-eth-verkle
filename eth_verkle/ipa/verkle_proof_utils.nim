@@ -28,6 +28,16 @@ import
 #
 #########################################################################
 
+proc hasStemPrefix* (mainSlice, prefix: seq[byte]): bool=
+  if prefix.len > mainSlice.len:
+    return false
+
+  for i in 0 ..< prefix.len:
+    if mainSlice[i] != prefix[i]:
+      return false
+
+  return true
+
 proc isStemSorted* (bytes: var seq[seq[byte]]): bool=
   for row in bytes:
     for i in 0 ..< row.len - 1:
