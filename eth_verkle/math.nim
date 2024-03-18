@@ -78,3 +78,6 @@ proc fromLEBytes*(field: var Field, data: openArray[byte]) =
 
 func serializePoint*(point: Point): Bytes32 =
   assert result.serialize(point) == CttCodecEccStatus.cttCodecEcc_Success
+
+func zeroField*(): Field =
+  result.setZero()
