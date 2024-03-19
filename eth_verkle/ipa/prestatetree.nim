@@ -30,6 +30,52 @@ proc NewStatelessBranchesNode (depth: var byte, comm: EC_P): BranchesNode =
 
   return bnode
 
+proc constructPartialViewPath* (n: var BranchesNode, path: seq[byte], sInfo: var StemInfo, comms: seq[EC_P], values: seq[seq[byte]]): (seq[EC_P], bool)=
+  ## constructPartialViewPath inserts a given stem in the tree, placing it as described
+  ## in the type StemInfo. It's third parameter is the list of the commitments that have
+  ## not been assigned a node. 
+  ## 
+  ## It returns the same list, saves the commitments that were consumed during this call
+  
+  if path.len == 0:
+    return (comms, false)
+
+  ## If the path is 1 byte long, then the leaf node must be created
+  if path.len == 1:
+    case uint8(sInfo.stemType) and 3 
+
+    of uint8(extStatusAbsentEmpty):
+      ## Setting the branch to empty so that, in terms of Statelessness
+      ## It is clear the node is EMPTY and UNKNOWN
+      n.branches[path[0]] = nil
+
+    of uint8(extStatusAbsentOther):
+      if comms.len == 0:
+        return (comms, false)
+
+      if sInfo.stem.len != StemSize:
+        return (comms, false)
+
+      var newChild = new(ValuesNode)
+      newChild.commitment = comms[0]
+
+      var stemInter: array[31, byte]
+      for i in 0 ..< stemInter.len:
+        stemInter[i] = sInfo.stem[i]
+
+      newChild.stem = stemInter
+
+      for i in 0 ..< VerkleDomain:
+        newChild.values[i] = nil
+      
+      newChild.depth = n.depth + 1
+      newChild.poa = true
+
+    else:
+      return (comms, false)
+
+    return (comms, true)
+
 proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var EC_P): (Option[BranchesNode], bool)=
   ## Constructing the Pre State tree, a stateless pre state tree from the VerkleProof
   doAssert vkp.Keys.len == vkp.PreStateValues.len, "Number of keys and the number of pre-state values should be EQUAL!"
