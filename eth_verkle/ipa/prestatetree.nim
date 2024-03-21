@@ -20,17 +20,21 @@ import
   ../tree/[tree, operations],
   ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]
 
-proc NewStatelessBranchesNode (depth: var byte, comm: EC_P): BranchesNode =
+
+
+proc NewStatelessBranchesNode* (depth: uint8, comm: EC_P): BranchesNode =
   var bnode: BranchesNode
   bnode.depth = depth
   bnode.commitment = comm
 
   for i in 0 ..< bnode.branches.len:
-    bnode.branches[i] = new(Node)
+    bnode.branches[i] = new BranchesNode
 
   return bnode
 
-proc constructPartialViewPath* (n: var BranchesNode, path: seq[byte], sInfo: var StemInfo, comms: seq[EC_P], values: seq[seq[byte]]): (seq[EC_P], bool)=
+
+
+proc constructPartialViewPath* (n: var BranchesNode, path: var seq[byte], sInfo: var StemInfo, comms: var seq[EC_P], values: seq[seq[byte]]): (seq[EC_P], bool)=
   ## constructPartialViewPath inserts a given stem in the tree, placing it as described
   ## in the type StemInfo. It's third parameter is the list of the commitments that have
   ## not been assigned a node. 
@@ -64,6 +68,7 @@ proc constructPartialViewPath* (n: var BranchesNode, path: seq[byte], sInfo: var
         stemInter[i] = sInfo.stem[i]
 
       newChild.stem = stemInter
+      discard stemInter
 
       for i in 0 ..< VerkleDomain:
         newChild.values[i] = nil
@@ -71,10 +76,85 @@ proc constructPartialViewPath* (n: var BranchesNode, path: seq[byte], sInfo: var
       newChild.depth = n.depth + 1
       newChild.poa = true
 
+      n.branches[path[0]] = newChild
+      
+      var inter = comms[1..^1]
+      comms = inter
+      discard inter
+
+    of uint8(extStatusPresent):
+      if comms.len == 0:
+        return (comms, false)
+
+      if sInfo.stem.len != StemSize:
+        return (comms, false)
+
+      ## inserting the stem
+      var newChild = new(ValuesNode)
+      newChild.commitment = comms[0]
+
+      var stemInter: array[31, byte]
+      for i in 0 ..< stemInter.len:
+        stemInter[i] = sInfo.stem[i]
+
+      newChild.stem = stemInter
+      discard stemInter
+
+      var idx = 0
+      for i in 0 ..< VerkleDomain:
+        for j in 0 ..< 32:
+          newChild.values[i][j] = values[idx][j]
+        inc(idx)
+
+      newChild.depth = n.depth + 1
+
+      n.branches[path[0]] = newChild
+      comms = comms[1..^1]
+
+      if sInfo.stat_c1:
+        if comms.len == 0:
+          return (comms, false)
+        newChild.c1 = comms[0]
+        comms = comms[1..^1]
+
+      else:
+        newChild.c1 = IdentityPoint      
+
+      if sInfo.stat_c2:
+        if comms.len == 0:
+          return (comms, false)
+        newChild.c2 = comms[0]
+        comms = comms[1..^1]
+
+      else:
+        newChild.c2 = IdentityPoint
+
+      for key, value in pairs(sInfo.values):
+        for j in 0 ..< 32:
+          newChild.values[key][j] = value[j]
+          
     else:
       return (comms, false)
 
     return (comms, true)
+
+  if n.branches[path[0]] of BranchesNode:
+    discard
+
+  if n.branches[path[0]] of ValuesNode:
+    return(comms, false)
+
+  else:
+    let newBranch = NewStatelessBranchesNode(n.depth + 1, comms[0])
+    n.branches[path[0]] = newBranch
+    discard newBranch
+
+    comms = comms[1..^1]
+  var pathNew = path[1..^1]
+
+  constructPartialViewPath(n.branches[path[0]].BranchesNode, pathNew, sInfo, comms, values)
+
+
 
 proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var EC_P): (Option[BranchesNode], bool)=
   ## Constructing the Pre State tree, a stateless pre state tree from the VerkleProof
