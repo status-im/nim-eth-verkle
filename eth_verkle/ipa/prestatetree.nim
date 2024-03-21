@@ -172,7 +172,6 @@ proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var E
 
   var info: Table[string, StemInfo]
   var paths: seq[seq[byte]]
-  var checker: bool
   var poas = vkp.PoaStems
 
   let stat = isStemSorted(vkp.PoaStems)
@@ -256,3 +255,31 @@ proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var E
 
   if poas.len != 0:
     return (none(BranchesNode), false)
+
+  var root: BranchesNode
+  root = NewStatelessBranchesNode(0, rootComm)
+  var comms: seq[EC_P]
+  comms = vkp.Cs
+
+  for i in 0 ..< paths.len:
+    var values: seq[seq[byte]]
+    var pStr: string = cast[string](paths[i])
+
+    for j in 0 ..< vkp.Keys.len:
+
+      if vkp.PreStateValues[j].len == 0:
+        continue
+
+      let k2s = keyToStem(vkp.Keys[j])
+      if k2s == info[pStr].stem:
+        values[vkp.Keys[j][StemSize]] = vkp.PreStateValues[j]
+
+    var path = paths[i]
+    var check = false
+    var stemInf = info[pStr]
+    var updatedComms {.noInit.}: seq[EC_P]
+
+    (updatedComms, check) = constructPartialViewPath(root, path, stemInf, comms, values)
+    doAssert check == true, "Issue with constructing partial view path"
+
+  return (some(root), true)
