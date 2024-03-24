@@ -5,4 +5,48 @@
 #     * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-## TODO
+import
+  verkle_proof_utils,
+  ipa_proof,
+  execution_witness,
+  algorithm,
+  tables,
+  options,
+  sets,
+  ../../../constantine/constantine/platforms/primitives,
+  ../../../constantine/constantine/math/io/[io_fields],
+  ../[math, upstream],
+  ../err/verkle_error,
+  ../tree/[tree, operations, commitment],
+  ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]
+
+proc postStateTreeFromStateDiff* (preroot: var BranchesNode, stateDiff: var StateDiff): (BranchesNode, bool) =
+  ## PostStateTreeFromProof uses the pre-state trie and the list of updated values
+  ## to produce the stateless post-state trie
+  var postroot {.noInit.}: BranchesNode
+  postroot = preroot
+
+  for i in 0 ..< stateDiff.len:
+    var values: seq[seq[byte]]
+    var doesOverwrite = true
+
+    ## suffixDiff.NewValue.len > 0 --> this works only for a slice
+    ## if this value is non-nil, it means the function for value insertion
+    ## at the stem should be called, otherwise, updating the tree can be skipped
+    
+    for j in 0 ..< stateDiff[i].SuffixDiffsInVKT.len:
+      if stateDiff[i].SuffixDiffsInVKT[j].NewVal.len != 0:
+        doesOverwrite = true
+        values[int(stateDiff[i].SuffixDiffsInVKT[j].Suffix)].add(stateDiff[i].SuffixDiffsInVKT[j].NewVal)
+
+    if doesOverwrite:
+      var stem = newSeq[byte](StemSize)
+      for k in 0 ..< StemSize:
+        stem[k] = stateDiff[i].Stem[k]
+
+      ## Add stateless insertion of stem values
+  
+  postroot.updateAllCommitments()
+  return (postroot, true)
+
+    
