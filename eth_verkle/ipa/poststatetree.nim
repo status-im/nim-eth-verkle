@@ -40,11 +40,16 @@ proc postStateTreeFromStateDiff* (preroot: var BranchesNode, stateDiff: var Stat
         values[int(stateDiff[i].SuffixDiffsInVKT[j].Suffix)].add(stateDiff[i].SuffixDiffsInVKT[j].NewVal)
 
     if doesOverwrite:
-      var stem = newSeq[byte](StemSize)
+      var stem: Bytes32
       for k in 0 ..< StemSize:
         stem[k] = stateDiff[i].Stem[k]
 
       ## Add stateless insertion of stem values
+      for k in 0 ..< 32:
+        var value: Bytes32
+        for ki in 0 ..< value.len:
+          value[ki] = values[k][ki]
+        postroot.setValue(stem, value)
   
   postroot.updateAllCommitments()
   return (postroot, true)
