@@ -35,3 +35,6 @@ task testAll, "Run all tests":
 
 task testTree, "Run Tree Tests":
   run "", "tests/test_tree"
+
+task testTree, "Run Tree Tests":
+  run "", "tests/proof_test"
