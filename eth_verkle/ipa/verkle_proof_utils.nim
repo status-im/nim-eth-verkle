@@ -7,18 +7,11 @@
 
 import 
   tables,
-  algorithm,
-  sequtils,
   strutils,
-  ../../../constantine/constantine/[
-    ethereum_verkle_primitives
-  ],
   ../../../constantine/constantine/serialization/[
     codecs, 
-    codecs_banderwagon, 
-    codecs_status_codes
   ],
-  ../[encoding, math, upstream],
+  ../[encoding, math],
   ../err/verkle_error,
   ../tree/tree
 
@@ -86,7 +79,7 @@ proc hexComparator* (x,y: string): int=
 #
 #########################################################################
 
-func mergeProofElements* (res: var ProofElements, other: var ProofElements)=
+proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
   if res.cisZisTup.len == 0:
     for i in 0 ..< res.Cis.len:
       var resCis: Bytes32
@@ -180,11 +173,11 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   pElem.Zis = @[]
   pElem.Fis = @[]
   pElem.Vals = @[]
-  pElem.CommByPath = initTable[string, EC_P]()
+  pElem.CommByPath = initTable[string, Point]()
   pElem.cisZisTup = initTable[Bytes32, Table[int, bool]]()
 
-  var fi: array[VerkleDomain, Fr[Banderwagon]]
-  var points: array[VerkleDomain, EC_P]
+  var fi: array[VKTDomain, Field]
+  var points: array[VKTDomain, Point]
 
   for i in 0 ..< n.branches.len:
     var child = n.branches[i]
@@ -207,7 +200,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
   for i in 0 ..< groups.len:
     var childIdx = offsetKey(groups[0][i], n.depth)
 
-    var yi: Fr[Banderwagon] 
+    var yi: Field 
     yi = fi[childIdx]
 
     pElem.Cis.add(n.commitment)
@@ -250,7 +243,7 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     pElemAdd.Zis = @[]
     pElemAdd.Fis = @[]
     pElemAdd.Vals = @[]
-    pElemAdd.CommByPath = initTable[string, EC_P]()
+    pElemAdd.CommByPath = initTable[string, Point]()
     pElemAdd.cisZisTup = initTable[Bytes32, Table[int, bool]]()
     var extStatuses2: seq[byte]
     var other: seq[seq[byte]]

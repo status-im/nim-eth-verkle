@@ -8,8 +8,7 @@
 import
   ../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes],
   ./tree/[tree, operations],
-  ./math,
-  ./upstream
+  ./math
 
 const
   BranchRLPType:  byte = 1
@@ -30,9 +29,9 @@ const
   LeafStemOffSet          = NodeTypeOffSet + NodeTypeSize
   LeafBitListOffSet       = LeafStemOffSet + 31              # 31 -> StemSize
   LeafCommitmentOffSet    = LeafBitListOffSet + BitListSize
-  LeafC1CommitmentOffSet  = LeafCommitmentOffSet + 64        # 64 -> Uncompressed Banderwagon EC_P Size
-  LeafC2CommitmentOffSet  = LeafC1CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon EC_P Size
-  LeafChildrenOffSet      = LeafC2CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon EC_P Size
+  LeafC1CommitmentOffSet  = LeafCommitmentOffSet + 64        # 64 -> Uncompressed Banderwagon Point Size
+  LeafC2CommitmentOffSet  = LeafC1CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon Point Size
+  LeafChildrenOffSet      = LeafC2CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon Point Size
 
   BranchNodeSerializationSize = NodeTypeSize + BitListSize + 64
 

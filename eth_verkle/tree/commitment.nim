@@ -11,7 +11,7 @@
 
 import
   std/[tables, sequtils],
-  ../[utils, math, upstream, config],
+  ../[utils, math, config],
   ./tree
 
 {.push warning[DotLikeOps]: off.}
@@ -19,7 +19,7 @@ import
 
 # leafToComms turns a leaf into two commitments of the suffix
 # and extension tree.
-proc leafToComms(field1, field2: var Fr[Banderwagon], val: Bytes32) =
+proc leafToComms(field1, field2: var Field, val: Bytes32) =
   var valLoWithMarker: array[17, byte]
   var loEnd = 16
   if val.len < loEnd:
@@ -34,7 +34,7 @@ proc leafToComms(field1, field2: var Fr[Banderwagon], val: Bytes32) =
 # fillSuffixTreePoly takes one of the two suffix tree and
 # builds the associated polynomial, to be used to compute
 # the corresponding C{1,2} commitment.
-proc fillSuffixTreePoly(poly: var openArray[Fr[Banderwagon]], values: openArray[ref Bytes32]): int =
+proc fillSuffixTreePoly(poly: var openArray[Field], values: openArray[ref Bytes32]): int =
   result = 0
   for idx, val in values.pairs:
     if val != nil:
@@ -46,9 +46,9 @@ proc fillSuffixTreePoly(poly: var openArray[Fr[Banderwagon]], values: openArray[
 const CodeHashVectorPosition     = 3 # Defined by the spec.
 const EmptyCodeHashFirstHalfIdx  = CodeHashVectorPosition * 2
 const EmptyCodeHashSecondHalfIdx = EmptyCodeHashFirstHalfIdx + 1
-const FrZero = Fr[Banderwagon]()
+const FrZero = Field()
 
-proc makeEmptyHashCodePoly(): array[256, Fr[Banderwagon]] =
+proc makeEmptyHashCodePoly(): array[256, Field] =
   var heapValue = new Bytes32
   heapValue[] = hexToBytesArray[32]("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
   var values: array[256, ref Bytes32]
@@ -72,7 +72,7 @@ proc initializeCommitment*(vn: ValuesNode) =
     return
 
   # C1.
-  var c1poly: array[256, Fr[Banderwagon]]
+  var c1poly: array[256, Field]
   var count = fillSuffixTreePoly(c1poly, vn.values[0..<128])
   let containsEmptyCodeHash =
     len(c1poly) >= EmptyCodeHashSecondHalfIdx and
@@ -91,12 +91,12 @@ proc initializeCommitment*(vn: ValuesNode) =
     vn.c1 = ipaCommitToPoly(c1poly)
 
   # C2.
-  var c2poly: array[256, Fr[Banderwagon]]
+  var c2poly: array[256, Field]
   count = fillSuffixTreePoly(c2poly, vn.values[128..<256])
   vn.c2 = ipaCommitToPoly(c2poly)
 
   # Root commitment preparation for calculation.
-  var poly: array[256, Fr[Banderwagon]]
+  var poly: array[256, Field]
   poly[0].bandesnatchSetUint64(1)
   poly[1].fromLEBytes(vn.stem)
   banderwagonMultiMapToScalarField([addr poly[2], addr poly[3]], [vn.c1, vn.c2])
@@ -104,11 +104,11 @@ proc initializeCommitment*(vn: ValuesNode) =
 
 
 
-proc updateCn(vn: ValuesNode, index: byte, value: ref Bytes32, c: var EC_P) =
+proc updateCn(vn: ValuesNode, index: byte, value: ref Bytes32, c: var Point) =
   var
-    old, newH: array[2, Fr[Banderwagon]]
-    diff:      EC_P
-    poly:      array[256, Fr[Banderwagon]]
+    old, newH: array[2, Field]
+    diff:      Point
+    poly:      array[256, Field]
 
   # Optimization idea:
   # If the value is created (i.e. not overwritten), the leaf marker
@@ -134,12 +134,12 @@ proc updateCn(vn: ValuesNode, index: byte, value: ref Bytes32, c: var EC_P) =
 
 
 
-proc updateC(vn: ValuesNode, cxIndex: int, newC: Fr[Banderwagon], oldC: Fr[Banderwagon]) =
+proc updateC(vn: ValuesNode, cxIndex: int, newC: Field, oldC: Field) =
   # Calculate the Fr-delta.
   let deltaC = newC.bandesnatchSubtract(oldC)
 
-  # Calculate the EC_P-delta.
-  var poly: array[256, Fr[Banderwagon]]
+  # Calculate the Point-delta.
+  var poly: array[256, Field]
   poly[cxIndex] = deltaC
 
   # Add delta to the current commitment.
@@ -156,7 +156,7 @@ proc updateCommitment*(vn: ValuesNode, index: byte, newValue: ref Bytes32) =
      (vn.values[index] != nil and newValue != nil and vn.values[index][] == newValue[]):
     return
 
-  var frs: array[2, Fr[Banderwagon]]
+  var frs: array[2, Field]
 
   if index < 256 div 2:
     var oldC1 = vn.c1
@@ -186,7 +186,7 @@ proc snapshotChildCommitment*(node: BranchesNode, childIndex: byte) =
   when DisableCommitments:
     return
   if node.commitmentsSnapshot.isNil:
-    node.commitmentsSnapshot = new Table[byte, EC_P]
+    node.commitmentsSnapshot = new Table[byte, Point]
   let childCommitment = 
     if node.branches[childIndex] != nil:
       node.branches[childIndex].commitment
@@ -216,7 +216,7 @@ proc updateAllCommitments*(tree: BranchesNode) =
     if nodes.len == 0:
       continue
 
-    var points: seq[EC_P]
+    var points: seq[Point]
     var childIndexes: seq[byte]
 
     for node in nodes:
@@ -227,16 +227,16 @@ proc updateAllCommitments*(tree: BranchesNode) =
         else: points.add(IdentityPoint)
         childIndexes.add(index)
 
-    var frs = newSeq[Fr[Banderwagon]](points.len)
+    var frs = newSeq[Field](points.len)
     banderwagonMultiMapToScalarField(frs, points)
 
-    var deltas = newSeq[Fr[Banderwagon]]()
+    var deltas = newSeq[Field]()
     for pair in frs.distribute(frs.len div 2):
       deltas.add(bandesnatchSubtract(pair[1], pair[0]))
 
     var deltasIdx, childIndexesIdx = 0
     for node in nodes:
-      var poly: array[256, Fr[Banderwagon]]
+      var poly: array[256, Field]
       for _ in 0 ..< node.commitmentsSnapshot.len:
         poly[childIndexes[childIndexesIdx]] = deltas[deltasIdx]
         inc(childIndexesIdx)

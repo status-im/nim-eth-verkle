@@ -10,12 +10,12 @@
 
 import
   std/[streams, tables],
-  ../[utils, math, upstream]
+  ../[utils, math]
 
 type
   Node* = ref object of RootObj
     ## Base node type
-    commitment*: EC_P
+    commitment*: Point
     depth*: uint8
 
   HashedNode* = ref Node
@@ -24,13 +24,13 @@ type
   BranchesNode* = ref object of Node
     ## Internal node in the tree that holds references to 256 child nodes (or nil-s)
     branches*: array[256, Node]
-    commitmentsSnapshot*: ref Table[byte, EC_P]
+    commitmentsSnapshot*: ref Table[byte, Point]
 
   ValuesNode* = ref object of Node
     ## Leaf node in the tree that holds references to 256 values (or nil-s)
     stem*:   array[31, byte]
     values*: array[256, ref Bytes32]
-    c1*, c2*: EC_P
+    c1*, c2*: Point
     poa*: bool
 
 func serializeCommitment*(node: Node): Bytes32 =

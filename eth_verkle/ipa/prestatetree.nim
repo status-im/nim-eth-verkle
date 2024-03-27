@@ -6,23 +6,17 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  verkle_proof_utils,
-  ipa_proof,
-  execution_witness,
-  algorithm,
   tables,
   options,
   sets,
-  ../../../constantine/constantine/platforms/primitives,
-  ../../../constantine/constantine/math/io/[io_fields],
-  ../[math, upstream],
+  ./verkle_proof_utils,
+  ../math,
   ../err/verkle_error,
-  ../tree/[tree, operations],
-  ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]
+  ../tree/tree
 
 
 
-proc NewStatelessBranchesNode* (depth: uint8, comm: EC_P): BranchesNode =
+proc NewStatelessBranchesNode* (depth: uint8, comm: Point): BranchesNode =
   var bnode: BranchesNode
   bnode.depth = depth
   bnode.commitment = comm
@@ -34,7 +28,7 @@ proc NewStatelessBranchesNode* (depth: uint8, comm: EC_P): BranchesNode =
 
 
 
-proc constructPartialViewPath* (n: var BranchesNode, path: var seq[byte], sInfo: var StemInfo, comms: var seq[EC_P], values: seq[seq[byte]]): (seq[EC_P], bool)=
+proc constructPartialViewPath* (n: var BranchesNode, path: var seq[byte], sInfo: var StemInfo, comms: var seq[Point], values: seq[seq[byte]]): (seq[Point], bool)=
   ## constructPartialViewPath inserts a given stem in the tree, placing it as described
   ## in the type StemInfo. It's third parameter is the list of the commitments that have
   ## not been assigned a node. 
@@ -70,7 +64,7 @@ proc constructPartialViewPath* (n: var BranchesNode, path: var seq[byte], sInfo:
       newChild.stem = stemInter
       discard stemInter
 
-      for i in 0 ..< VerkleDomain:
+      for i in 0 ..< VKTDomain:
         newChild.values[i] = nil
       
       newChild.depth = n.depth + 1
@@ -101,7 +95,7 @@ proc constructPartialViewPath* (n: var BranchesNode, path: var seq[byte], sInfo:
       discard stemInter
 
       var idx = 0
-      for i in 0 ..< VerkleDomain:
+      for i in 0 ..< VKTDomain:
         for j in 0 ..< 32:
           newChild.values[i][j] = values[idx][j]
         inc(idx)
@@ -156,7 +150,7 @@ proc constructPartialViewPath* (n: var BranchesNode, path: var seq[byte], sInfo:
 
 
 
-proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var EC_P): (Option[BranchesNode], bool)=
+proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var Point): (Option[BranchesNode], bool)=
   ## Constructing the Pre State tree, a stateless pre state tree from the VerkleProof
   doAssert vkp.Keys.len == vkp.PreStateValues.len, "Number of keys and the number of pre-state values should be EQUAL!"
   doAssert vkp.Keys.len == vkp.PostStateValues.len, "Number of Keys and the number of post-state values should be EQUAL!"
@@ -258,7 +252,7 @@ proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var E
 
   var root: BranchesNode
   root = NewStatelessBranchesNode(0, rootComm)
-  var comms: seq[EC_P]
+  var comms: seq[Point]
   comms = vkp.Cs
 
   for i in 0 ..< paths.len:
@@ -277,7 +271,7 @@ proc constructPreStateTreeFromProof* (vkp: var VerkleProofUtils, rootComm: var E
     var path = paths[i]
     var check = false
     var stemInf = info[pStr]
-    var updatedComms {.noInit.}: seq[EC_P]
+    var updatedComms {.noInit.}: seq[Point]
 
     (updatedComms, check) = constructPartialViewPath(root, path, stemInf, comms, values)
     doAssert check == true, "Issue with constructing partial view path"

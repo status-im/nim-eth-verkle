@@ -6,13 +6,10 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  verkle_proof_utils,
   algorithm,
   tables,
-  ../../../constantine/constantine/platforms/primitives,
-  ../../../constantine/constantine/math/io/[io_fields],
-  ../[math, upstream],
-  ../err/verkle_error,
+  ./verkle_proof_utils,
+  ../math,
   ../tree/[tree, operations],
   ../../../constantine/constantine/serialization/[codecs]
 
@@ -47,7 +44,7 @@ proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList): (
   pEl.Zis = @[]
   pEl.Fis = @[]
   pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, EC_P]()
+  pEl.CommByPath = initTable[string, Point]()
 
   var outs: seq[byte]
   var outStem: seq[seq[byte]]
@@ -65,7 +62,7 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   pEl.Zis = @[]
   pEl.Fis = @[]
   pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, EC_P]()
+  pEl.CommByPath = initTable[string, Point]()
 
   if keys.len == 0:
     return (pEl, @[], @[@[]], @[@[]], false)
@@ -96,14 +93,14 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   ## 3: values to be inserted in the post-state trie for serialization
   return (pEl, es, poass, postvals, true)
 
-proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[EC_P], seq[Fr[Banderwagon]], seq[int], bool)=
+proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[Field], seq[int], bool)=
 
-  var pEl: ProofElements
+  var pEl {.noInit.}: ProofElements
   pEl.Cis = @[]
   pEl.Zis = @[]
   pEl.Fis = @[]
   pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, EC_P]()
+  pEl.CommByPath = initTable[string, Point]()
 
   var es: seq[byte]
   var poass: seq[seq[byte]]
@@ -112,25 +109,22 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
   
   (pEl, es, poass, postvals, check) = getProofElementsFromTree(preroot, postroot, keys)
 
-  var config {.noInit.}: IPASettings
-  discard config.genIPAConfig()
+  var config {.noInit.}: IPAConf
+  discard config.generateIPAConfiguration()
 
-  var tr {.noInit.}: sha256
-  tr.newTranscriptGen(asBytes"vt")
-
-  var cis {.noInit.}: seq[EC_P]
-  var fis: array[VerkleDomain, array[VerkleDomain, Fr[Banderwagon]]]
+  var cis {.noInit.}: seq[Point]
+  var fis: array[VKTDomain, array[VKTDomain, Field]]
 
   for i in 0 ..< pEl.Cis.len:
     cis[i] = pEl.Cis[i]
 
-  for i in 0 ..< VerkleDomain:
-    for j in 0 ..< VerkleDomain:
+  for i in 0 ..< VKTDomain:
+    for j in 0 ..< VKTDomain:
       fis[i][j] = pEl.Fis[i][j]
 
-  var mprv {.noInit.}: MultiProof
+  var mprv {.noInit.}: Multipoint
   var checks: bool
-  checks = mprv.createMultiProof(tr, config, pEl.Cis, fis, pEl.Zis)
+  checks = mprv.createVKTMultiproof(config, pEl.Cis, fis, pEl.Zis)
 
   var paths = newSeq[string](pEl.CommByPath.len - 1)
   for path, point in pEl.CommByPath:
@@ -138,7 +132,7 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
       paths.add(path)
 
   paths.sort(hexComparator)
-  var cis2 = newSeq[EC_P](pEl.CommByPath.len - 1)
+  var cis2 = newSeq[Point](pEl.CommByPath.len - 1)
   for i in 0 ..< paths.len:
     cis2[i] = pEl.CommByPath[paths[i]]
 
@@ -153,15 +147,13 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
 
   return (vktproofutils, pEl.Cis, pEl.Yis, pEl.Zis, true)
 
-proc verifyVerkleProof* (proof: var VerkleProofUtils, config: IPASettings, Cs: var openArray[EC_P], indices: var openArray[int], ys: var openArray[Fr[Banderwagon]]): bool =
-  var tr {.noInit.}: sha256
-  tr.newTranscriptGen(asBytes"vt")
+proc verifyVerkleProof* (proof: var VerkleProofUtils, config: IPAConf, Cs: var openArray[Point], indices: var openArray[int], ys: var openArray[Field]): bool =
   var checker = false
-  checker = proof.Multipoint.verifyMultiproof(tr, config, Cs, ys, indices)
+  checker = verifyVKTMultiproof(proof.Multipoint, config, Cs, ys, indices)
 
   return checker
 
-proc verifyVerkleProofWithPreState* (config:IPASettings, proof: var VerkleProofUtils, preroot: var BranchesNode): bool =
+proc verifyVerkleProofWithPreState* (config: IPAConf, proof: var VerkleProofUtils, preroot: var BranchesNode): bool =
   # verifyVerkleProofWithPreState takes a proof and a trusted tree root and verifies that the proof is valid
   var pElm: ProofElements
   var check = false

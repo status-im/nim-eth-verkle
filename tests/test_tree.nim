@@ -8,7 +8,7 @@
 
 import
   unittest,
-  ../eth_verkle/[math, encoding, upstream],
+  ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment],
   ../constantine/constantine/serialization/codecs
 

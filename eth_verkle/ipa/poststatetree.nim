@@ -6,16 +6,16 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  verkle_proof_utils,
-  ipa_proof,
-  execution_witness,
   algorithm,
   tables,
   options,
   sets,
+  ./verkle_proof_utils,
+  ./ipa_proof,
+  ./execution_witness,
   ../../../constantine/constantine/platforms/primitives,
   ../../../constantine/constantine/math/io/[io_fields],
-  ../[math, upstream],
+  ../math,
   ../err/verkle_error,
   ../tree/[tree, operations, commitment],
   ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]

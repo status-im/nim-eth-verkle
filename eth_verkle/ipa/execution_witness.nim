@@ -6,16 +6,8 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  verkle_proof_utils,
-  ipa_proof,
-  algorithm,
-  tables,
-  ../../../constantine/constantine/platforms/primitives,
-  ../../../constantine/constantine/math/io/[io_fields],
-  ../[math, upstream],
-  ../err/verkle_error,
-  ../tree/[tree, operations],
-  ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]
+  ./verkle_proof_utils,
+  ../math
 
 proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, StateDiff, bool)=
   ## serializeToExecutionWitness converts from VerkelProofUtils to the standardized
@@ -102,10 +94,10 @@ proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, S
   var cl_bytes {.noInit.}: array[8, array[32, byte]]
   var cr_bytes {.noInit.}: array[8, array[32, byte]]
 
-  var serializedVerkleMultiproof {.noInit.}: VerkleMultiproofSerialized
+  var serializedVerkleMultiproof {.noInit.}: SerializedMultipoint
 
   var checker = false
-  checker = serializedVerkleMultiproof.serializeVerkleMultiproof(proof.Multipoint)
+  checker = serializedVerkleMultiproof.VKTMultiproofSerializer(proof.Multipoint)
 
   var idx = 0
   for i in 0 ..< 576:
@@ -151,8 +143,8 @@ proc deserializeExecutionWitness* (vp: var VerkleProof, stateDiff: var StateDiff
   var keys: KeyList
   var prevalues, postvalues: seq[seq[byte]]
   var extStat: seq[byte]
-  var commitments: seq[EC_P]
-  var multipoint: MultiProof
+  var commitments: seq[Point]
+  var multipoint: Multipoint
 
   var poaStems = newSeq[Stem](vp.OtherStems.len)
   for i in 0 ..< vp.OtherStems.len:
@@ -160,12 +152,12 @@ proc deserializeExecutionWitness* (vp: var VerkleProof, stateDiff: var StateDiff
       poaStems[i][j] = vp.OtherStems[i][j]
 
   extStat = vp.DepthExtensionPresent
-  commitments = newSeq[EC_P](vp.CommitmentsByPath.len)
+  commitments = newSeq[Point](vp.CommitmentsByPath.len)
 
   for i in  0 ..< vp.CommitmentsByPath.len:
     commitments[i] = vp.CommitmentsByPath[i].deserializePoint()
 
-  var aggregatedArray {.noInit.}: VerkleMultiproofSerialized
+  var aggregatedArray {.noInit.}: SerializedMultipoint
 
   var idx = 0
   for i in 0 ..< 32:
@@ -186,7 +178,7 @@ proc deserializeExecutionWitness* (vp: var VerkleProof, stateDiff: var StateDiff
     aggregatedArray[idx] = vp.IPAProofPView.FinalEval[i] 
 
   var check2 = false
-  check2 = multipoint.deserializeVerkleMultiproof(aggregatedArray)
+  check2 = multipoint.VKTMultiproofDeserializer(aggregatedArray)
 
   for i in 0 ..< stateDiff.len:
     for j in 0 ..< stateDiff[i].SuffixDiffsinVKT.len:
