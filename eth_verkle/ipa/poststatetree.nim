@@ -6,19 +6,8 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  algorithm,
-  tables,
-  options,
-  sets,
-  ./verkle_proof_utils,
-  ./ipa_proof,
-  ./execution_witness,
-  ../../../constantine/constantine/platforms/primitives,
-  ../../../constantine/constantine/math/io/[io_fields],
-  ../math,
-  ../err/verkle_error,
-  ../tree/[tree, operations, commitment],
-  ../../../constantine/constantine/serialization/[codecs, codecs_banderwagon]
+  ".."/math,
+  ".."/tree/[tree, operations, commitment]
 
 proc postStateTreeFromStateDiff* (preroot: var BranchesNode, stateDiff: var StateDiff): (BranchesNode, bool) =
   ## PostStateTreeFromProof uses the pre-state trie and the list of updated values

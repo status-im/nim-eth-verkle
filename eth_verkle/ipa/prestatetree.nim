@@ -9,10 +9,10 @@ import
   tables,
   options,
   sets,
-  ./verkle_proof_utils,
-  ../math,
-  ../err/verkle_error,
-  ../tree/tree
+  ./ipa_proof,
+  ".."/math,
+  ".."/err/verkle_error,
+  ".."/tree/tree
 
 
 

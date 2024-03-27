@@ -6,8 +6,8 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ./verkle_proof_utils,
-  ../math
+  ./ipa_proof,
+  ".."/math
 
 proc serializeToExecutionWitness* (proof: var VerkleProofUtils): (VerkleProof, StateDiff, bool)=
   ## serializeToExecutionWitness converts from VerkelProofUtils to the standardized

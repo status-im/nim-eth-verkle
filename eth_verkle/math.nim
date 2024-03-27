@@ -10,13 +10,13 @@
 
 import
   tables,
-  ../constantine/constantine/serialization/[codecs_banderwagon, codecs_status_codes],
   ../constantine/constantine/hashes,
-  ../constantine/constantine/platforms/primitives,
   ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
   ../constantine/constantine/math/arithmetic,
   ../constantine/constantine/math/config/curves,
+  ../constantine/constantine/curves_primitives,
   ../constantine/constantine/math/io/[io_bigints, io_fields],
+  ../constantine/constantine/serialization/[codecs_banderwagon, codecs_status_codes],
   ../constantine/constantine/ethereum_verkle_primitives,
   ../constantine/constantine/ethereum_verkle_trees
 
@@ -26,14 +26,14 @@ export ethereum_verkle_trees.Point
 export ethereum_verkle_trees.Field
 
 type
-  Bytes32* = Bytes
+  Bytes32* = ethereum_verkle_trees.Bytes
     ## A 32-bytes blob that can represent a verkle key or value
-  Multipoint* = MultiProof
-  IPAConf* = IPASettings
-  SerializedMultipoint* = VerkleMultiproofSerialized
+  Multipoint* = ethereum_verkle_trees.MultiProof
+  IPAConf* = ethereum_verkle_trees.IPASettings
+  SerializedMultipoint* = ethereum_verkle_trees.VerkleMultiproofSerialized
 
 
-const VKTDomain* = VerkleDomain
+const VKTDomain* = ethereum_verkle_trees.VerkleDomain
 #########################################################################
 #
 #                 Verkle Proof Items and it's Utilities
@@ -127,6 +127,10 @@ IdentityPoint.z.setOne()
 var ipaConfig: IPAConf
 discard ipaConfig.genIPAConfig()
 
+proc strToBytes* (bytearr: var openArray[byte], s: static string)=
+  for i in 0 ..< s.len:
+    bytearr[i] = byte s[i]
+
 proc VKTMultiproofSerializer*(serializedVerkleMultiproof: var SerializedMultipoint, proof: var Multipoint): bool=
   var checker = false
   checker = serializedVerkleMultiproof.serializeVerkleMultiproof(proof)
@@ -140,14 +144,18 @@ proc VKTMultiproofDeserializer*(proof: var Multipoint, serializedVerkleMultiproo
 proc createVKTMultiproof*(mprv: var Multipoint, ipaConfig: IPAConf, Cis: openArray[Point], Fis: array[VKTDomain, array[VKTDomain, Field]], Zis: openArray[int]): bool=
   var checker = false
   var transcript {.noInit.}: sha256
-  transcript.newTranscriptGen(asBytes"vt")
+  var label: seq[byte]
+  label.strToBytes("vt")
+  transcript.newTranscriptGen(label)
   checker = mprv.createMultiproof(transcript, ipaConfig, Cis, Fis, Zis)
   return checker
 
 proc verifyVKTMultiproof*(mprv: var Multipoint, ipaConfig: IPAConf, Cis: openArray[Point], Yis: openArray[Field], Zis: openArray[int]): bool=
   var checker = false
   var transcript {.noInit.}: sha256
-  transcript.newTranscriptGen(asBytes"vt")
+  var label: seq[byte]
+  label.strToBytes("vt")
+  transcript.newTranscriptGen(label)
   checker = mprv.verifyMultiproof(transcript, ipaConfig, Cis, Yis, Zis)
   return checker
 
