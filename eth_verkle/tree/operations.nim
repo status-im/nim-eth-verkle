@@ -119,6 +119,22 @@ proc getValue*(node: BranchesNode, key: Bytes32): ref Bytes32 =
   else: return nil
 
 
+proc getValueSeq*(node: BranchesNode, key: seq[byte]): ref Bytes32 =
+  ## Retrieves a value given a key. Returns nil if not found.
+  var current = node
+  var depth = 0
+
+  # Walk down the tree till the branch closest to the key
+  while current.branches[key[depth]] of BranchesNode:
+    current = current.branches[key[depth]].BranchesNode
+    inc(depth)
+
+  var vn = current.branches[key[depth]].ValuesNode
+  if vn != nil and vn.stem == key[0..30] and vn.values[key[^1]] != nil:
+    var key_inter: uint8
+    key_inter = key[^1]
+    return vn.values[key_inter]
+  else: return nil
 
 proc deleteValueRecursive(node: BranchesNode, key: Bytes32):
     tuple[found: bool, empty: bool, values: ValuesNode] =

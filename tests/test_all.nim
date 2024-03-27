@@ -10,7 +10,7 @@
 import
   std/[random, streams, os, times, strformat],
   unittest2,
-  ../eth_verkle/[config, utils, math],
+  ../eth_verkle/[config, utils, math, upstream],
   ../eth_verkle/tree/[tree, operations, commitment]
 
 suite "main":

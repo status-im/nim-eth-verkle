@@ -1,4 +1,3 @@
 {
-  "editor.detectIndentation": false,
-  "editor.insertSpaces": true
+    "nim.nimprettyIndent": 2
 }
