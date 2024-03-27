@@ -9,13 +9,12 @@
 ##  obtained from the Constantine library
 
 import
-  tables,
+  std/tables,
   ../constantine/constantine/hashes,
   ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
   ../constantine/constantine/math/arithmetic/finite_fields,
   ../constantine/constantine/eth_verkle_ipa/eth_verkle_constants,
   ../constantine/constantine/math/config/curves,
-  ../constantine/constantine/curves_primitives,
   ../constantine/constantine/math/io/[io_bigints, io_fields],
   ../constantine/constantine/serialization/[codecs_banderwagon, codecs_status_codes],
   ../constantine/constantine/ethereum_verkle_primitives,

@@ -9,10 +9,10 @@ import
   std/algorithm,
   std/tables,
   std/strutils,
-  ".."/[encoding, math],
+  ".."/[math, encoding],
   ".."/tree/[tree, operations],
-  ".."/err/verkle_error,
-  "../../../constantine/constantine/serialization"/codecs
+  ".."/err/verkle_error
+
 
 #########################################################################
 #
@@ -304,11 +304,6 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   ## it takes a pre-state tree and an optional post-state tree, extracts the proof data from them and returns
   ## all the items required to build/verify a proof.
   var pEl: ProofElements
-  pEl.Cis = @[]
-  pEl.Zis = @[]
-  pEl.Fis = @[]
-  pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, Point]()
 
   if keys.len == 0:
     return (pEl, @[], @[@[]], @[@[]], false)
@@ -342,11 +337,6 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
 proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[Field], seq[int], bool)=
 
   var pEl {.noInit.}: ProofElements
-  pEl.Cis = @[]
-  pEl.Zis = @[]
-  pEl.Fis = @[]
-  pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, Point]()
 
   var es: seq[byte]
   var poass: seq[seq[byte]]
