@@ -12,7 +12,8 @@ import
   tables,
   ../constantine/constantine/hashes,
   ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
-  ../constantine/constantine/math/arithmetic,
+  ../constantine/constantine/math/arithmetic/finite_fields,
+  ../constantine/constantine/eth_verkle_ipa/eth_verkle_constants,
   ../constantine/constantine/math/config/curves,
   ../constantine/constantine/curves_primitives,
   ../constantine/constantine/math/io/[io_bigints, io_fields],
@@ -22,15 +23,14 @@ import
 
 export finite_fields.`==`
 
-export ethereum_verkle_trees.Point
-export ethereum_verkle_trees.Field
-
 type
-  Bytes32* = ethereum_verkle_trees.Bytes
+  Bytes32* = eth_verkle_constants.Bytes
     ## A 32-bytes blob that can represent a verkle key or value
-  Multipoint* = ethereum_verkle_trees.MultiProof
-  IPAConf* = ethereum_verkle_trees.IPASettings
-  SerializedMultipoint* = ethereum_verkle_trees.VerkleMultiproofSerialized
+  Field* = Fr[Banderwagon]
+  Point* = eth_verkle_constants.EC_P
+  Multipoint* = eth_verkle_constants.MultiProof
+  IPAConf* = eth_verkle_constants.IPASettings
+  SerializedMultipoint* = eth_verkle_constants.VerkleMultiproofSerialized
 
 
 const VKTDomain* = ethereum_verkle_trees.VerkleDomain

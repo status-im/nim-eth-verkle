@@ -9,7 +9,6 @@ import
   std/algorithm,
   std/tables,
   std/strutils,
-  std/sequtils,
   ".."/[encoding, math],
   ".."/tree/[tree, operations],
   ".."/err/verkle_error,

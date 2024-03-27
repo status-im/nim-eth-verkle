@@ -37,4 +37,4 @@ task testTree, "Run Tree Tests":
   run "", "tests/test_tree"
 
 task testTree, "Run Tree Tests":
-  run "", "tests/proof_test"
+  run "", "tests/test_tree_ipa"

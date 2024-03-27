@@ -11,8 +11,8 @@ import
   ../eth_verkle/ipa/ipa_proof,
   ../eth_verkle/math,
   ../constantine/constantine/ethereum_verkle_trees,
-  ../eth_verkle/tree/[tree, operations, commitment],
-  ../constantine/constantine/serialization/codecs
+  ../eth_verkle/tree/[tree, operations, commitment]
+  # ../constantine/constantine/serialization/codecs
 
 # ## Values to be used for testing
 # const
