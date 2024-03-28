@@ -175,6 +175,55 @@ proc updateCommitment*(vn: ValuesNode, index: byte, newValue: ref Bytes32) =
 
 
 
+proc updateMultipleValues*(vn: ValuesNode, newValues: array[256, ref Bytes32]) =
+  when DisableCommitments:
+    return
+
+  var oldC1, oldC2: ref Point
+
+  # We iterate the values, and we update the C1 and/or C2 commitments depending on the index.
+  # If any of them is touched, we save the original point so we can update the LeafNode root
+  # commitment. We copy the original point in oldC1 and oldC2, so we can batch their Fr transformation
+  # after this loop.
+  for i, v in newValues.pairs:
+    if v != nil and (vn.values[i] == nil or v[] != vn.values[i][]):
+      if i < 256 div 2:
+        # First time we touch C1? Save the original point for later.
+        if oldC1 == nil:
+          new oldC1
+          oldC1[] = vn.c1
+        # We update C1 directly in `vn`. We have our original copy in oldC1.
+        vn.updateCn(i.byte, v, vn.c1)
+      else:
+        # First time we touch C2? Save the original point for later.
+        if oldC2 == nil:
+          new oldC2
+          oldC2[] = vn.c2
+        # We update C2 directly in `vn`. We have our original copy in oldC2.
+        vn.updateCn(i.byte, v, vn.c2)
+      vn.values[i] = v
+
+  # We have three potential cases here:
+  # 1. We have touched C1 and C2: we Fr-batch old1, old2 and newC1, newC2. (4x gain ratio)
+  # 2. We have touched only one CX: we Fr-batch oldX and newCX. (2x gain ratio)
+  # 3. No C1 or C2 was touched, this is a noop.
+  var frs: array[4, Field]
+  const c1Idx = 2 # [1, stem, ->C1<-, C2]
+  const c2Idx = 3 # [1, stem, C1, ->C2<-]
+
+  if oldC1 != nil and oldC2 != nil:  # Case 1.
+    banderwagonMultiMapToScalarField([addr frs[0], addr frs[1], addr frs[2], addr frs[3]], [vn.c1, oldC1[], vn.c2, oldC2[]])
+    vn.updateC(c1Idx, frs[0], frs[1])
+    vn.updateC(c2Idx, frs[2], frs[3])
+  elif oldC1 != nil:  # Case 2. (C1 touched)
+    banderwagonMultiMapToScalarField([addr frs[0], addr frs[1]], [vn.c1, oldC1[]])
+    vn.updateC(c1Idx, frs[0], frs[1])
+  elif oldC2 != nil:  # Case 2. (C2 touched)
+    banderwagonMultiMapToScalarField([addr frs[0], addr frs[1]], [vn.c2, oldC2[]])
+    vn.updateC(c2Idx, frs[0], frs[1])
+
+
+
 proc snapshotChildCommitment*(node: BranchesNode, childIndex: byte) =
   ## Stores the current commitment of the child node denoted by `childIndex`
   ## into the `node`'s `commitmentsSnapshot` table, and allocates the table if

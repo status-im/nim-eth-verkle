@@ -114,6 +114,49 @@ suite "main":
     check tree2.serializeCommitment.toHex == expectedRootCommitment3
 
 
+  test "multipleUpdate":
+
+    for modulo in @[1, 10]: # full, sparse
+
+      let updatedOneByOneStart = cpuTime()
+      var updatedOneByOne = newTree()
+      for i in 0..<256:
+        if i mod modulo == 0:
+          var key, value: Bytes32
+          key[^1] = i.byte
+          value[^1] = i.byte
+          updatedOneByOne.setValue(key, value)
+      updatedOneByOne.updateAllCommitments()
+      let updatedOneByOneEnd = cpuTime()
+      when TraceLogs: echo &"updatedOneByOne root commitment: {updatedOneByOne.serializeCommitment.toHex}. Took: {updatedOneByOneEnd - updatedOneByOneStart:.3f} secs"
+
+      let multiCreateStart = cpuTime()
+      var multiCreate = newTree()
+      var values: array[256, ref Bytes32]
+      for i in 0..<256:
+        if i mod modulo == 0:
+          var value: ref Bytes32
+          new value
+          value[^1] = i.byte
+          values[i] = value
+      var stem: array[31, byte]
+      multiCreate.setMultipleValues(stem, values)
+      multiCreate.updateAllCommitments()
+      let multiCreateEnd = cpuTime()
+      when TraceLogs: echo &"multiCreate root commitment: {multiCreate.serializeCommitment.toHex}. Took: {multiCreateEnd - multiCreateStart:.3f} secs"
+      check multiCreate.serializeCommitment.toHex == updatedOneByOne.serializeCommitment.toHex
+
+      let multiUpdateStart = cpuTime()
+      var multiUpdate = newTree()
+      var key, value: Bytes32
+      multiUpdate.setValue(key, value)
+      multiUpdate.setMultipleValues(stem, values)
+      multiUpdate.updateAllCommitments()
+      let multiUpdateEnd = cpuTime()
+      when TraceLogs: echo &"multiUpdate root commitment: {multiUpdate.serializeCommitment.toHex}. Took: {multiUpdateEnd - multiUpdateStart:.3f} secs"
+      check multiUpdate.serializeCommitment.toHex == updatedOneByOne.serializeCommitment.toHex
+
+
   test "fetchKeys":
     var tree = newTree()
     for (key, value) in sampleKvps.hexKvpsToBytes32():
