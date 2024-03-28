@@ -8,6 +8,7 @@
 
 import
   unittest,
+  std/[times, os],
   ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment],
   ../constantine/constantine/serialization/codecs
@@ -325,5 +326,22 @@ suite "Verkle Node Serialization Tests":
 
     res.BranchesNode.updateAllCommitments()
     doAssert res.commitment.serializePoint() == tree.commitment.serializePoint(), "Reconstruction failed"
+
+  test "setValue single stem performance":
+    var tree = newTree()
+    var key = fromHex(Bytes32, "0x3031323334353637383961626364656630313233343536373839616263646566")
+    const val = fromHex(
+        Bytes32, 
+        "0x0105000000000000000000000000000000000000000000000000000000000000"
+      )
+
+    var time = cpuTime()
+    echo "Starting time same stem add : ", time
+    for i in 0..255:
+      key[31] = byte(i)
+      tree.setValue(key, val)
+    var endTime = cpuTime()
+    echo "Ending time same stem add : ", endTime
+    echo "Total time : ", endTime - time
 
   

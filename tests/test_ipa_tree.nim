@@ -47,26 +47,23 @@ const
 suite "Test Proof of Empty Tree":
   test "Make Verkle Multiproof out of Empty Tree Correctly":
     var tree = newTree()
+    tree.setValue(zeroKeyTest, zeroKeyTest)
+    tree.setValue(oneKeyTest, zeroKeyTest)
+    tree.setValue(ffx32KeyTest, zeroKeyTest)
+
 
     var postroot = newTree()
+
     var proof: VerkleProofUtils
     var cis: seq[Point]
-    var yis: seq[Field] 
+    var yis: seq[Field]
     var zis: seq[int]
     var checker = false
-
     var values = newSeq[seq[byte]](1)
 
     values[0].add(ffx32KeyTest)
 
-    (proof, cis, yis, zis, checker) = tree.makeVKTMultiproof(postroot, values)
-    check checker == false 
-
-    var ipaConfig: IPAConf
-    discard ipaConfig.generateIPAConfiguration()
-
-    var stat = false
-    stat = proof.verifyVerkleProof(ipaConfig, cis, zis, yis)
-    check stat == false
+    (proof, cis, yis, zis, checker) = makeVKTMultiproof(tree, postroot, values)
+    doAssert checker == true, "Error in making verkle proof!"
 
 
