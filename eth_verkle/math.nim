@@ -11,6 +11,7 @@
 import
   std/tables,
   ../constantine/constantine/hashes,
+  ../constantine/constantine/platforms/abstractions,
   ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
   ../constantine/constantine/math/arithmetic/finite_fields,
   ../constantine/constantine/eth_verkle_ipa/eth_verkle_constants,
@@ -39,14 +40,14 @@ const VKTDomain* = ethereum_verkle_trees.VerkleDomain
 #
 #########################################################################
 
-type KeyList* = seq[seq[byte]]
+type KeyList* = seq[Bytes32]
 
 type ProofElements* = object
   Cis*:                        seq[Point]
   Zis*:                        seq[int]
   Yis*:                        seq[Field]
-  Fis*:                        seq[seq[Field]]
-  Vals*:                       seq[seq[byte]]
+  Fis*:                        array[VKTDomain, array[VKTDomain, Field]]
+  Vals*:                       array[256, Bytes32]
   CommByPath*:                 Table[string, Point]
   cisZisTup*:                  Table[Bytes32, Table[int, bool]]
 
@@ -78,7 +79,7 @@ type VerkleProof* = object
   ## The trie that is built is indeed correct.
   OtherStems*: seq[array[31, byte]]
   DepthExtensionPresent*: seq[byte]
-  CommitmentsByPath*: seq[array[32, byte]]
+  CommitmentsByPath*: array[256, Bytes32]
   D*: array[32, byte]
   IPAProofPView*: IPAProofVkt 
 
@@ -90,10 +91,10 @@ type VerkleProofUtils* = object
   Multipoint*: Multipoint
   ExtensionStatus*: seq[byte]
   Cs*: seq[Point]
-  PoaStems*: seq[seq[byte]]
-  Keys*: seq[seq[byte]]
-  PreStateValues*: seq[seq[byte]]
-  PostStateValues*: seq[seq[byte]]
+  PoaStems*: array[256, Bytes32]
+  Keys*: KeyList
+  PreStateValues*: array[256, Bytes32]
+  PostStateValues*: array[256, Bytes32]
 
 type SuffixStateDiff* = object
   Suffix*: byte
@@ -126,10 +127,6 @@ IdentityPoint.z.setOne()
 var ipaConfig: IPAConf
 discard ipaConfig.genIPAConfig()
 
-proc strToBytes* (bytearr: var openArray[byte], s: static string)=
-  for i in 0 ..< s.len:
-    bytearr[i] = byte s[i]
-
 proc VKTMultiproofSerializer*(serializedVerkleMultiproof: var SerializedMultipoint, proof: var Multipoint): bool=
   var checker = false
   checker = serializedVerkleMultiproof.serializeVerkleMultiproof(proof)
@@ -143,18 +140,14 @@ proc VKTMultiproofDeserializer*(proof: var Multipoint, serializedVerkleMultiproo
 proc createVKTMultiproof*(mprv: var Multipoint, ipaConfig: IPAConf, Cis: openArray[Point], Fis: array[VKTDomain, array[VKTDomain, Field]], Zis: openArray[int]): bool=
   var checker = false
   var transcript {.noInit.}: sha256
-  var label: seq[byte]
-  label.strToBytes("vt")
-  transcript.newTranscriptGen(label)
+  transcript.newTranscriptGen(asBytes"vt")
   checker = mprv.createMultiproof(transcript, ipaConfig, Cis, Fis, Zis)
   return checker
 
 proc verifyVKTMultiproof*(mprv: var Multipoint, ipaConfig: IPAConf, Cis: openArray[Point], Yis: openArray[Field], Zis: openArray[int]): bool=
   var checker = false
   var transcript {.noInit.}: sha256
-  var label: seq[byte]
-  label.strToBytes("vt")
-  transcript.newTranscriptGen(label)
+  transcript.newTranscriptGen(asBytes"vt")
   checker = mprv.verifyMultiproof(transcript, ipaConfig, Cis, Yis, Zis)
   return checker
 

@@ -9,6 +9,7 @@ import
   std/algorithm,
   std/tables,
   std/strutils,
+  std/sequtils,
   ".."/[math, encoding],
   ".."/tree/[tree, operations],
   ".."/err/verkle_error
@@ -20,12 +21,12 @@ import
 #
 #########################################################################
 
-proc hasStemPrefix* (mainSlice, prefix: seq[byte]): bool=
-  if prefix.len > mainSlice.len:
+proc hasStemPix* (mainSlice, pix: seq[byte]): bool=
+  if pix.len > mainSlice.len:
     return false
 
-  for i in 0 ..< prefix.len:
-    if mainSlice[i] != prefix[i]:
+  for i in 0 ..< pix.len:
+    if mainSlice[i] != pix[i]:
       return false
 
   return true
@@ -42,7 +43,7 @@ proc isStemSorted* (bytes: var seq[seq[byte]]): bool=
   
   return true
 
-proc comparatorFor2DimArrays*(a, b: seq[byte]): int=
+proc comparatorFor2DimArrays*(a, b: Bytes32): int=
   var sumA = 0
   var sumB = 0
 
@@ -86,6 +87,12 @@ proc offsetKey*(key: seq[byte], depth: byte): byte =
   else:
     return 0
 
+proc offsetKey*(key: Bytes32, depth: byte): byte = 
+  if int(depth) < key.len:
+    return key[depth]
+  else:
+    return 0
+
 
 proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
   if keys.len == 0:
@@ -94,7 +101,7 @@ proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
   if keys.len == 1:
     return @[keys]
 
-  var groups: seq[KeyList] = @[]
+  var groups: seq[KeyList]
   var firstKey = 0
   var lastKey = 1
 
@@ -108,8 +115,8 @@ proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
       firstKey = lastKey
 
     inc(lastKey)
-
   groups.add(keys[firstKey ..< lastKey])
+
   return groups
 
 proc keyToStem* (key: openArray[byte]): seq[byte]=
@@ -170,13 +177,15 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
     res.Zis.add(other.Zis[i])
 
     if res.Fis.len > 0:
-      res.Fis.add(other.Fis[i])
+      for i in 0 ..< VKTDomain:
+        res.Fis[i] = other.Fis[i]
 
     for path, c in other.CommByPath.pairs():
       if not res.CommByPath.hasKey(path):
         res.CommByPath[path] = c
 
-    res.Vals.add(other.Vals)
+    for i in 0 ..< 256:
+      res.Vals[i] = other.Vals[i]
 
   #########################################################################
 #
@@ -184,19 +193,17 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
 #
 #########################################################################
 
-proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte], seq[seq[byte]], bool)=
+proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: openArray[Bytes32]): bool=
 
   var groups = groupKeys(keys, n.depth)
 
   var extStatuses {.noInit.}: seq[byte]
-  var poaStatuses: seq[seq[byte]]
+  var poaStatuses: array[256, Bytes32]
 
   var pElem: ProofElements
 
   pElem.Cis = @[]
   pElem.Zis = @[]
-  pElem.Fis = @[]
-  pElem.Vals = @[]
   pElem.CommByPath = initTable[string, Point]()
   pElem.cisZisTup = initTable[Bytes32, Table[int, bool]]()
 
@@ -205,20 +212,21 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
 
   for i in 0 ..< n.branches.len:
     var child = n.branches[i]
-    if child.isNil() == false:
-      var c: Node
-      if child of HashedNode:
-        var childPath = newSeq[byte](n.depth + 1)
-        childPath.add(keys[0][0..n.depth])
-        childPath[n.depth] = uint8(i)
-        var c = parseNode(childPath, n.depth + 1)
-        n.branches[i] = c
-      else:
-        c = child
+    if child != nil:
+      var c = child
+      # if child of HashedNode:
+      #   var childPath = newSeq[byte](n.depth + 1 + 64)
+      #   childPath.add(keys[0][0..n.depth])
+      #   childPath[n.depth] = uint8(i)
+      #   var c = parseNode(childPath, n.depth + 1)
+      #   n.branches[i] = c
+      # else:
+      # c = child
       points[i] = c.commitment
     else:
       points[i] = IdentityPoint
 
+  debugEcho "Working 4"
   fi.banderwagonMultiMapToScalarField(points)
 
   for i in 0 ..< groups.len:
@@ -230,8 +238,9 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
     pElem.Cis.add(n.commitment)
     pElem.Zis.add(int(childIdx))
     pElem.Yis.add(yi)
-    for i in 0 ..< pElem.Fis.len:
-      pElem.Fis[i].add(fi)
+    for i in 0 ..< VKTDomain:
+      for j in 0 ..< VKTDomain:
+        pElem.Fis[i][j] = fi[j]
     
     var inter: seq[byte]
     inter = groups[0][i][0..n.depth]
@@ -252,115 +261,112 @@ proc getProofItems* (n: BranchesNode, keys: KeyList): (ProofElements, seq[byte],
         stem = keyToStem(groups[i][j])
         var stemStr = stem.toHex()
 
-        if addedStems[stemStr] == false:
+        if addedStems.hasKeyOrPut(stemStr, true):
           extStatuses.add(uint8(extStatusAbsentEmpty) or ((n.depth + 1) shl 3))
           addedStems[stemStr] = true
 
-        var aux = fromHex(array[1, byte], "0x00")
-        for k in 0 ..< pElem.Vals.len:
-          pElem.Vals[i].add(aux)
+        # for k in 0 ..< pElem.Vals.len:
+        #   pElem.Vals[i][] = nil
 
       continue
 
     var pElemAdd: ProofElements
-    pElemAdd.Cis = @[]
-    pElemAdd.Zis = @[]
-    pElemAdd.Fis = @[]
-    pElemAdd.Vals = @[]
-    pElemAdd.CommByPath = initTable[string, Point]()
-    pElemAdd.cisZisTup = initTable[Bytes32, Table[int, bool]]()
     var extStatuses2: seq[byte]
-    var other: seq[seq[byte]]
-    var check = false
+    var other: array[256, Bytes32]
 
-    (pElemAdd, extStatuses2, other, check) = getProofItems(n, groups[i])
+    debugEcho "Working 5"
+    var branch = newBranchesNode(n.depth + 1)
+    n.branches[childIdx] = branch
+    debugEcho "Working 5.1"
+    
+    discard branch.getProofItems(groups[i], pElemAdd, extStatuses2, other)
+
+    var poaseq: seq[seq[byte]] = newSeq[seq[byte]](256)
+    var otherseq: seq[seq[byte]] = newSeq[seq[byte]](256)
+
+    for i in 0 ..< 256:
+      poaseq[i] = newSeq[byte](32)
+      otherseq[i] = newSeq[byte](32)
+      for j in 0 ..< 32:
+        poaseq[i][j] = poaStatuses[i][j]
+        otherseq[i][j] = other[i][j]
 
     pElem.mergeProofElements(pElemAdd)
-    poaStatuses.add(other)
+    debugEcho "Working 6"
+    poaseq.add(otherseq)
+
+    var finalpoa: array[256, Bytes32]
+    for i in 0 ..< 256:
+      for j in 0 ..< 32:
+        finalpoa[i][j] = poaseq[i][j]
+
     extStatuses.add(extStatuses2)
+    return true
 
-  return (pElem, extStatuses, poaStatuses, true)
 
 
-proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList): (ProofElements, seq[byte], seq[seq[byte]], bool)=
+proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: openArray[Bytes32]): bool=
   keys.sort(comparatorFor2DimArrays)
-
-  var pEl: ProofElements
-  pEl.Cis = @[]
-  pEl.Zis = @[]
-  pEl.Fis = @[]
-  pEl.Vals = @[]
-  pEl.CommByPath = initTable[string, Point]()
-
-  var outs: seq[byte]
-  var outStem: seq[seq[byte]]
   var check = false
-  (pEl, outs, outStem, check) = getProofItems(root, keys)
 
-  return (pEl, outs, outStem, true)
+  debugEcho "Working 3"
+  discard root.getProofItems(keys, pEl, outs, outStem)
 
-proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var KeyList): (ProofElements, seq[byte], seq[seq[byte]], seq[seq[byte]], bool)=
+  return true
+
+proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var KeyList, pEl: var ProofElements, es: var seq[byte], poass: var openArray[Bytes32], postvals: var openArray[Bytes32]): bool=
   ## this function leverages the logic that is used both in the proving and verifying methods.
   ## it takes a pre-state tree and an optional post-state tree, extracts the proof data from them and returns
   ## all the items required to build/verify a proof.
-  var pEl: ProofElements
-
+  debugEcho "Working <2"
   if keys.len == 0:
-    return (pEl, @[], @[@[]], @[@[]], false)
+    return false
 
-  var es: seq[byte]
-  var poass: seq[seq[byte]]
+  debugEcho "Working 2"
   var check = false
+  check = preroot.getCommitmentsForMultiproof(keys, pEl, es, poass)
+  doAssert check == true, "Issue with get commitments for multiproof!"
 
-  (pEl, es, poass, check) = getCommitmentsForMultiproof(preroot, keys)
-  if check == false:
-    return (pEl, @[], @[@[]], @[@[]], false)
-
-  var postvals = newSeq[seq[byte]](keys.len)
-  postvals = @[@[]]
-  if postroot.isNil() == false:
+  if postroot != nil:
     ## Keys were sorted already in getCommitmentsForMultiproof
     ## Set the post values, if they are untouched leaving them nil
     for i in 0..<keys.len:
       var val: ref Bytes32
-      val = postroot.getValueSeq(keys[i])
+      val = postroot.getValue(keys[i])
 
-      for j in 0 ..< 32:
-
-        if pEl.Vals[i][j] == val[j]:
-          postvals[i][j] = val[j]
+      # for j in 0 ..< 32:
+      #   if pEl.Vals[i][j] == val[j]:
+      #     postvals[i][j] = val[j]
 
   ## [0..3]: Proof elements of the pre-state trie for serialization
   ## 3: values to be inserted in the post-state trie for serialization
-  return (pEl, es, poass, postvals, true)
+  return true
 
-proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[Field], seq[int], bool)=
-
-  var pEl {.noInit.}: ProofElements
+proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList, vktproofutils: var VerkleProofUtils, pEl: var ProofElements): bool=
 
   var es: seq[byte]
-  var poass: seq[seq[byte]]
-  var check = false
-  var postvals = newSeq[seq[byte]](keys.len)
-  
-  (pEl, es, poass, postvals, check) = getProofElementsFromTree(preroot, postroot, keys)
+  var poass: array[256, Bytes32]
+  var check: bool
+  var postvals: array[256, Bytes32]
 
+  debugEcho "Working 1"
+  
+  check = preroot.getProofElementsFromTree(postroot, keys, pEl, es, poass, postvals)
+
+  debugEcho "Working 6"
   var config {.noInit.}: IPAConf
   discard config.generateIPAConfiguration()
 
   var cis {.noInit.}: seq[Point]
-  var fis: array[VKTDomain, array[VKTDomain, Field]]
 
   for i in 0 ..< pEl.Cis.len:
     cis[i] = pEl.Cis[i]
 
-  for i in 0 ..< VKTDomain:
-    for j in 0 ..< VKTDomain:
-      fis[i][j] = pEl.Fis[i][j]
+  debugEcho "Working 1.1"
 
   var mprv {.noInit.}: Multipoint
   var checks: bool
-  checks = mprv.createVKTMultiproof(config, pEl.Cis, fis, pEl.Zis)
+  checks = mprv.createVKTMultiproof(config, pEl.Cis, pEl.Fis, pEl.Zis)
 
   var paths = newSeq[string](pEl.CommByPath.len - 1)
   for path, point in pEl.CommByPath:
@@ -381,7 +387,7 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList)
   vktproofutils.PreStateValues = pEl.Vals
   vktproofutils.PostStateValues = postvals
 
-  return (vktproofutils, pEl.Cis, pEl.Yis, pEl.Zis, true)
+  return true
 
 proc verifyVerkleProof* (proof: var VerkleProofUtils, config: IPAConf, Cs: var openArray[Point], indices: var openArray[int], ys: var openArray[Field]): bool =
   var checker = false
@@ -394,11 +400,11 @@ proc verifyVerkleProofWithPreState* (config: IPAConf, proof: var VerkleProofUtil
   var pElm: ProofElements
   var check = false
   var p0: seq[byte]
-  var p1,p2: seq[seq[byte]]
+  var p1,p2: array[256, Bytes32]
 
   var post {.noInit.}: BranchesNode
 
-  (pElm, p0, p1, p2, check) = getProofElementsFromTree(preroot, post, proof.Keys)
+  check = getProofElementsFromTree(preroot, post, proof.Keys, pElm, p0, p1, p2)
 
   discard p0
   discard p1

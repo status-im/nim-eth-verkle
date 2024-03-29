@@ -50,20 +50,21 @@ suite "Test Proof of Empty Tree":
     tree.setValue(zeroKeyTest, zeroKeyTest)
     tree.setValue(oneKeyTest, zeroKeyTest)
     tree.setValue(ffx32KeyTest, zeroKeyTest)
-
+    tree.updateAllCommitments()
 
     var postroot = newTree()
 
     var proof: VerkleProofUtils
-    var cis: seq[Point]
-    var yis: seq[Field]
-    var zis: seq[int]
+    var pEl: ProofElements
     var checker = false
-    var values = newSeq[seq[byte]](1)
+    var values = newSeq[Bytes32](1)
 
-    values[0].add(ffx32KeyTest)
+    for i in 0 ..< 32:
+     values[0][i] = ffx32KeyTest[i]
 
-    (proof, cis, yis, zis, checker) = makeVKTMultiproof(tree, postroot, values)
-    doAssert checker == true, "Error in making verkle proof!"
+    echo values.len
+
+    checker = tree.makeVKTMultiproof(postroot, values, proof, pEl)
+    check checker == true
 
 
