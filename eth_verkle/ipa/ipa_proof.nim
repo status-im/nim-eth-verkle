@@ -43,7 +43,7 @@ proc isStemSorted* (bytes: var seq[seq[byte]]): bool=
   
   return true
 
-proc comparatorFor2DimArrays*(a, b: Bytes32): int=
+proc comparatorFor2DimArrays*(a, b: seq[byte]): int=
   var sumA = 0
   var sumB = 0
 
@@ -193,12 +193,12 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
 #
 #########################################################################
 
-proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: openArray[Bytes32]): bool=
+proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: seq[seq[byte]]): bool=
 
   var groups = groupKeys(keys, n.depth)
 
   var extStatuses {.noInit.}: seq[byte]
-  var poaStatuses: array[256, Bytes32]
+  var poaStatuses: seq[seq[byte]]
 
   var pElem: ProofElements
 
@@ -272,7 +272,7 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofEle
 
     var pElemAdd: ProofElements
     var extStatuses2: seq[byte]
-    var other: array[256, Bytes32]
+    var other: seq[seq[byte]]
 
     debugEcho "Working 5"
     var branch = newBranchesNode(n.depth + 1)
@@ -305,7 +305,7 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofEle
 
 
 
-proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: openArray[Bytes32]): bool=
+proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: seq[seq[byte]]): bool=
   keys.sort(comparatorFor2DimArrays)
   var check = false
 
@@ -314,7 +314,7 @@ proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pE
 
   return true
 
-proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var KeyList, pEl: var ProofElements, es: var seq[byte], poass: var openArray[Bytes32], postvals: var openArray[Bytes32]): bool=
+proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var KeyList, pEl: var ProofElements, es: var seq[byte], poass: var seq[seq[byte]], postvals: var seq[seq[byte]]): bool=
   ## this function leverages the logic that is used both in the proving and verifying methods.
   ## it takes a pre-state tree and an optional post-state tree, extracts the proof data from them and returns
   ## all the items required to build/verify a proof.
@@ -332,7 +332,7 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
     ## Set the post values, if they are untouched leaving them nil
     for i in 0..<keys.len:
       var val: ref Bytes32
-      val = postroot.getValue(keys[i])
+      val = postroot.getValueSeq(keys[i])
 
       # for j in 0 ..< 32:
       #   if pEl.Vals[i][j] == val[j]:
@@ -345,9 +345,9 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
 proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList, vktproofutils: var VerkleProofUtils, pEl: var ProofElements): bool=
 
   var es: seq[byte]
-  var poass: array[256, Bytes32]
+  var poass: seq[seq[byte]]
   var check: bool
-  var postvals: array[256, Bytes32]
+  var postvals: seq[seq[byte]]
 
   debugEcho "Working 1"
   
@@ -362,11 +362,16 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
   for i in 0 ..< pEl.Cis.len:
     cis[i] = pEl.Cis[i]
 
+  var fis: array[VKTDomain, array[VKTDomain, Field]]
   debugEcho "Working 1.1"
+
+  for i in 0 ..< pEl.Fis.len:
+    for j in 0 ..< pEl.Fis[i].len:
+      fis[i][j] = pEl.Fis[i][j]
 
   var mprv {.noInit.}: Multipoint
   var checks: bool
-  checks = mprv.createVKTMultiproof(config, pEl.Cis, pEl.Fis, pEl.Zis)
+  checks = mprv.createVKTMultiproof(config, pEl.Cis, fis, pEl.Zis)
 
   var paths = newSeq[string](pEl.CommByPath.len - 1)
   for path, point in pEl.CommByPath:
@@ -400,7 +405,7 @@ proc verifyVerkleProofWithPreState* (config: IPAConf, proof: var VerkleProofUtil
   var pElm: ProofElements
   var check = false
   var p0: seq[byte]
-  var p1,p2: array[256, Bytes32]
+  var p1,p2: seq[seq[byte]]
 
   var post {.noInit.}: BranchesNode
 
