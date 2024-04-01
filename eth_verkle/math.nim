@@ -164,6 +164,10 @@ proc ipaCommitToPoly*(poly: array[256, Field]): Point =
 proc banderwagonMultiMapToScalarField*(fields: var openArray[Field], points: openArray[Point]) =
   fields.batchMapToScalarField(points)
 
+proc banderwagonMultiMapToScalarFieldWithDecision*(fields: var openArray[Field], points: openArray[Point]): bool=
+  var checker = false
+  checker = fields.batchMapToScalarField(points)
+  return checker
 
 proc banderwagonMultiMapToScalarField*(fields: openArray[ptr Field], points: openArray[Point]) =
   var correctFields: seq[Field] = @[]

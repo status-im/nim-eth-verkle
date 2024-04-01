@@ -125,6 +125,12 @@ proc keyToStem* (key: openArray[byte]): seq[byte]=
   
   return key[0..31]
 
+proc equalPaths* (key1, key2: openArray[byte]): bool=
+  var outcome = false
+  if keyToStem(key1) == keyToStem(key2):
+    return true
+  return false
+
 proc loadStateDiff* (res: var StateDiff, inp: StateDiff)=
   for i in 0 ..< inp.len:
     var auxStem {.noInit.}: seq[byte]
@@ -193,7 +199,7 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
 #
 #########################################################################
 
-proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: seq[seq[byte]]): bool=
+proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: var seq[seq[byte]]): bool=
 
   var groups = groupKeys(keys, n.depth)
 
@@ -304,7 +310,7 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofEle
     return true
 
 
-proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: openArray[Bytes32]): bool=
+proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: var seq[seq[byte]]): bool=
 
   var polynom: array[VKTDomain, Field]
   
@@ -317,8 +323,11 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
   pElem.Yis[0] = polynom[0]
   pElem.Yis[1] = polynom[1]
 
-  for i in 0 ..< VKTDomain:
-    pElem.Fis[i] = polynom
+  pElem.Fis[0] = newSeq[Field](VKTDomain)
+  pElem.Fis[0].add(polynom)
+
+  pElem.Fis[1] = newSeq[Field](VKTDomain)
+  pElem.Fis[1].add(polynom)
 
   for i in 0 ..< VKTDomain:
     for j in 0 ..< 32:
@@ -330,11 +339,96 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
   doAssert polynom[1].stemFromLEBytes(n.stem) == true, "Issue with extracting stem!"
 
   var has_c1, has_c2: bool
+  for i in 0 ..< keys.len:
+    ## Note that there maybe keys that do NOT correspond to this leaf node
+    ## We should ONLY analyze the inclusions of C1/C2 for keys corresponding 
+    ## to this leaf node stem.
+    var key = keys[i]
+    if equalPaths(n.stem, key):
+      has_c1 = has_c1 or (key[StemSize] < 128).bool()
+      has_c2 = has_c2 or (key[StemSize] >= 128).bool()
+      if has_c2:
+        break
+    
+  ## If this tree is a full tree (not a stateless tree), we know we have C1 and C2 values.
+  ## We need them independently irrespective of has_c1 or has_c2 since the prover needs to 
+  ## Fis to create the multiproof from the tree.
+  
+  if n.poa == false:
+    var fieldd: array[2, Field]
+    fieldd[0] = polynom[2]
+    fieldd[1] = polynom[3]
+
+    var pointt: array[2, Point]
+    pointt[0] = n.c1
+    pointt[1] = n.c2
+
+    var check = false
+    check = fieldd.banderwagonMultiMapToScalarFieldWithDecision(pointt)
+    if check == false:
+      return check
+
+  elif has_c1 == true or has_c2 == true:
+    return false
+
+  if has_c1:
+    pElem.Cis.add(n.commitment)
+    pElem.Zis.add(2)
+    pElem.Yis.add(polynom[2])
+    
+    for i in 0 ..< pElem.Fis.len:
+      pElem.Fis[i].add(polynom)
+
+  if has_c2:
+    pElem.Cis.add(n.commitment)
+    pElem.Zis.add(3)
+    pElem.Yis.add(polynom[3])
+    
+    for i in 0 ..< pElem.Fis.len:
+      pElem.Fis[i].add(polynom)
+
+  var addedStems: Table[string, bool]
+  addedStems = initTable[string, bool]()
+
+  var idx = 0 
+  var idx2 = 0
+  ## Now adding the C_n level elements
+  for i in 0 ..< keys.len:
+    var key = keys[i]
+    var keyStr: string = cast[string](key[0..<n.depth])
+    pElem.CommByPath[keyStr] = n.commitment
+
+    ## Proof of absence: case of a differing stem
+    if equalPaths(n.stem, key) == false:
+      ## If this is the first extension status added for this path.
+      ## add the proof of absence stem (only once). If later we find a 
+      ## proof of presence, we will clear the list since the proof of presence
+      ## will be enough to provide the stem
+      if extStatuses.len == 0:
+        for k in 0 ..< poaStatuses[idx].len:
+          poaStatuses[idx][k] = n.stem[k]
+        inc(idx)
+
+      ## Add an extension status absent for this stem.
+      ## Note that we keep a cache to adding the same stem twice or more
+      ## if there are multiple keys with the same stem
+      var stemStr: string = cast[string](keyToStem(key))
+      if addedStems.hasKeyOrPut(stemStr, true):
+        extStatuses.add(uint8(uint8(extStatusAbsentOther) or (n.depth shl 3)))
+      
+      pElem.Vals[idx2].add(@[])
+      inc(idx2)
+      continue
+
+
+    
 
 
 
 
-proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: seq[seq[byte]]): bool=
+
+
+proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: var seq[seq[byte]]): bool=
   keys.sort(comparatorFor2DimArrays)
   var check = false
 
