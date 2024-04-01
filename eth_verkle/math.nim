@@ -40,14 +40,14 @@ const VKTDomain* = ethereum_verkle_trees.VerkleDomain
 #
 #########################################################################
 
-type KeyList* = seq[Bytes32]
+type KeyList* = seq[seq[byte]]
 
 type ProofElements* = object
   Cis*:                        seq[Point]
   Zis*:                        seq[int]
   Yis*:                        seq[Field]
-  Fis*:                        array[VKTDomain, array[VKTDomain, Field]]
-  Vals*:                       array[256, Bytes32]
+  Fis*:                        seq[seq[Field]]
+  Vals*:                       seq[seq[byte]]
   CommByPath*:                 Table[string, Point]
   cisZisTup*:                  Table[Bytes32, Table[int, bool]]
 
@@ -77,9 +77,9 @@ type VerkleProof* = object
   ## CommitmentsByPath is a DFS-style walk of the Verkle Trie with each required commitment
   ## D + IPAProof is everything that the verifier needs to ensure that the partial view of
   ## The trie that is built is indeed correct.
-  OtherStems*: seq[array[31, byte]]
+  OtherStems*: seq[seq[byte]]
   DepthExtensionPresent*: seq[byte]
-  CommitmentsByPath*: array[256, Bytes32]
+  CommitmentsByPath*: seq[seq[byte]]
   D*: array[32, byte]
   IPAProofPView*: IPAProofVkt 
 
@@ -91,10 +91,10 @@ type VerkleProofUtils* = object
   Multipoint*: Multipoint
   ExtensionStatus*: seq[byte]
   Cs*: seq[Point]
-  PoaStems*: array[256, Bytes32]
+  PoaStems*: seq[seq[byte]]
   Keys*: KeyList
-  PreStateValues*: array[256, Bytes32]
-  PostStateValues*: array[256, Bytes32]
+  PreStateValues*: seq[seq[byte]]
+  PostStateValues*: seq[seq[byte]]
 
 type SuffixStateDiff* = object
   Suffix*: byte
