@@ -85,3 +85,8 @@ func serializePoint*(point: Point): Bytes32 =
 
 func zeroField*(): Field =
   result.setZero()
+
+func hashPointToBytes*(point: Point): Bytes32 =
+  var hashedPoint: Field
+  hashedPoint.mapToScalarField(point)
+  assert result.marshal(hashedPoint, littleEndian)
