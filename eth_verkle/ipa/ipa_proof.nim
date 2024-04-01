@@ -304,6 +304,35 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofEle
     return true
 
 
+proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: openArray[Bytes32]): bool=
+
+  var polynom: array[VKTDomain, Field]
+  
+  pElem.Cis.add(n.commitment)
+  pElem.Cis.add(n.commitment)
+
+  pElem.Zis.add(0)
+  pElem.Zis.add(1)
+
+  pElem.Yis[0] = polynom[0]
+  pElem.Yis[1] = polynom[1]
+
+  for i in 0 ..< VKTDomain:
+    pElem.Fis[i] = polynom
+
+  for i in 0 ..< VKTDomain:
+    for j in 0 ..< 32:
+      pElem.Vals[i][j] = uint8(0)
+
+  pElem.CommByPath = initTable[string, Point]()
+
+  polynom[0].bandesnatchSetUint64(uint64(1))
+  doAssert polynom[1].stemFromLEBytes(n.stem) == true, "Issue with extracting stem!"
+
+  var has_c1, has_c2: bool
+
+
+
 
 proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: openArray[Bytes32]): bool=
   keys.sort(comparatorFor2DimArrays)

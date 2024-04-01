@@ -192,6 +192,13 @@ proc fromLEBytes*(field: var Field, data: openArray[byte]) =
   temp.unmarshal(data, littleEndian)
   field.fromBig(temp)
   
+proc stemFromLEBytes*(field: var Field, data: openArray[byte]): bool =
+  var checker = false
+  var temp {.noInit.}: matchingOrderBigInt(Banderwagon)
+  temp.unmarshal(data, littleEndian)
+  field.fromBig(temp)
+  checker = true
+  return checker
 
 func serializePoint*(point: Point): Bytes32 =
   assert result.serialize(point) == CttCodecEccStatus.cttCodecEcc_Success
