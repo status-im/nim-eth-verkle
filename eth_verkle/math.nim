@@ -159,7 +159,7 @@ proc generateIPAConfiguration* (ipaConfig: var IPAConf): bool=
   checker = ipaConfig.genIPAConfig()
   return checker
 
-proc ipaCommitToPoly*(poly: array[256, Field]): Point =
+proc ipaCommitToPoly*(poly: openArray[Field]): Point =
   var comm: Point
   comm.pedersen_commit_varbasis(ipaConfig.SRS, ipaConfig.SRS.len, poly, poly.len)
   return comm
@@ -207,8 +207,20 @@ proc stemFromLEBytes*(field: var Field, data: openArray[byte]): bool =
   checker = true
   return checker
 
+proc fromBEBytes*(field: var Field, data: openArray[byte]) =
+  var temp{.noinit.}: matchingOrderBigInt(Banderwagon)
+  temp.unmarshal(data, bigEndian)
+  field.fromBig(temp)
+
 func serializePoint*(point: Point): Bytes32 =
   assert result.serialize(point) == CttCodecEccStatus.cttCodecEcc_Success
 
 func deserializePoint*(bytearr: var Bytes32): Point =
   assert result.deserialize_vartime(bytearr) == CttCodecEccStatus.cttCodecEcc_Success
+func zeroField*(): Field =
+  result.setZero()
+
+func hashPointToBytes*(point: Point): Bytes32 =
+  var hashedPoint: Field
+  hashedPoint.mapToScalarField(point)
+  assert result.marshal(hashedPoint, littleEndian)
