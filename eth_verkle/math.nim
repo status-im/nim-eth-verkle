@@ -124,6 +124,9 @@ IdentityPoint.x.setZero()
 IdentityPoint.y.setOne()
 IdentityPoint.z.setOne()
 
+var FrZero*: Field
+FrZero.setZero()
+
 var ipaConfig: IPAConf
 discard ipaConfig.genIPAConfig()
 

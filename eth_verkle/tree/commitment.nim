@@ -34,7 +34,7 @@ proc leafToComms(field1, field2: var Field, val: Bytes32) =
 # fillSuffixTreePoly takes one of the two suffix tree and
 # builds the associated polynomial, to be used to compute
 # the corresponding C{1,2} commitment.
-proc fillSuffixTreePoly(poly: var openArray[Field], values: openArray[ref Bytes32]): int =
+proc fillSuffixTreePoly*(poly: var openArray[Field], values: openArray[ref Bytes32]): int =
   result = 0
   for idx, val in values.pairs:
     if val != nil:

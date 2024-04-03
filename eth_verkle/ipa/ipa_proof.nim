@@ -11,7 +11,7 @@ import
   std/strutils,
   std/sequtils,
   ".."/[math, encoding],
-  ".."/tree/[tree, operations],
+  ".."/tree/[tree, operations, commitment],
   ".."/err/verkle_error
 
 
@@ -312,7 +312,7 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofEle
 
 proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: var seq[seq[byte]]): bool=
 
-  var polynom: array[VKTDomain, Field]
+  var polynom = newSeq[Field](VKTDomain)
   
   pElem.Cis.add(n.commitment)
   pElem.Cis.add(n.commitment)
@@ -323,11 +323,8 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
   pElem.Yis[0] = polynom[0]
   pElem.Yis[1] = polynom[1]
 
-  pElem.Fis[0] = newSeq[Field](VKTDomain)
-  pElem.Fis[0].add(polynom)
-
-  pElem.Fis[1] = newSeq[Field](VKTDomain)
-  pElem.Fis[1].add(polynom)
+  pElem.Fis.add(polynom)
+  pElem.Fis.add(polynom)
 
   for i in 0 ..< VKTDomain:
     for j in 0 ..< 32:
@@ -374,18 +371,14 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
   if has_c1:
     pElem.Cis.add(n.commitment)
     pElem.Zis.add(2)
-    pElem.Yis.add(polynom[2])
-    
-    for i in 0 ..< pElem.Fis.len:
-      pElem.Fis[i].add(polynom)
+    pElem.Yis.add(polynom[2]) 
+    pElem.Fis.add(polynom)
 
   if has_c2:
     pElem.Cis.add(n.commitment)
     pElem.Zis.add(3)
     pElem.Yis.add(polynom[3])
-    
-    for i in 0 ..< pElem.Fis.len:
-      pElem.Fis[i].add(polynom)
+    pElem.Fis.add(polynom)
 
   var addedStems: Table[string, bool]
   addedStems = initTable[string, bool]()
@@ -420,17 +413,70 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
       inc(idx2)
       continue
 
+      
+    ## As mentioned above, if a proof of absence stem was found, and 
+    ## it now turns out the same stem is used as a proof of presence, we 
+    ## clear the proof-of-absence list to avoid redundancy. Note that we don't
+    ## delete the extension statuses since that is needed to figure out which is 
+    ## the correct stem for this path
+    if poaStatuses.len > 0:
+      poaStatuses = @[@[]]
 
+    var suffix = key[StemSize]
+    var suffixPolynom = newSeq[Field](VKTDomain)
+    var scomcheck: bool
+    var scom: Point
+
+    if suffix >= 128:
+      discard fillSuffixTreePoly(suffixPolynom, n.values[128..n.values.len])
+      scom = n.c2
+    else:
+      discard fillSuffixTreePoly(suffixPolynom, n.values[0..<128])
+      scom = n.c1
+
+    var leaves: array[2, Field]
+    if n.values[suffix].isNil():
+      ## Proof of absence: case of a missing value.
+      ## 
+      ## Suffix tree is present as a child of the extension
+      ## but does not contain the requested suffix. This can 
+      ## only happen when the leaf has never been written to 
+      ## since after deletion the value would be set to zero 
+      ## but still contain the leaf marker 2^128.
+
+      leaves[0] = FrZero 
+      leaves[1] = FrZero
     
+    else:
+      leaves[0] = suffixPolynom[2*suffix]
+      leaves[1] = suffixPolynom[2*suffix + 1]
 
+    pElem.Cis.add(scom)
+    pElem.Cis.add(scom)
 
+    pElem.Zis.add(int(2*suffix))
+    pElem.Zis.add(int(2*suffix+1))
 
+    pElem.Yis.add(leaves[0])
+    pElem.Yis.add(leaves[1])
 
+    pElem.Fis.add(suffixPolynom)
+    pElem.Fis.add(suffixPolynom)
+    
+    pElem.Vals.add(n.values[StemSize][].toSeq)
+
+    var stemStr: string = cast[string](keyToStem(key))
+    if addedStems.hasKeyOrPut(stemStr, true):
+      extStatuses.add(uint8(uint8(extStatusPresent) or (n.depth shl 3)))
+
+    let slotPath = $(key[0 ..< n.depth]) & $(char(2 + int(suffix) div 128))
+    discard pElem.CommByPath.hasKeyOrPut(slotPath, scom)
+
+  return true
 
 
 proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: var seq[seq[byte]]): bool=
   keys.sort(comparatorFor2DimArrays)
-  var check = false
 
   debugEcho "Working 3"
   discard root.getProofItems(keys, pEl, outs, outStem)
