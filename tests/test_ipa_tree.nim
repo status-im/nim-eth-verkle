@@ -46,7 +46,7 @@ const
 ##
 ## ################################################################
 suite "Test Proof of Empty Tree":
-  test "Make Verkle Multiproof out of Empty Tree Correctly":
+  test "Make Verkle Multiproof out of Populated Verkle Trie Correctly":
     var tree = newTree()
     tree.setValue(zeroKeyTest, zeroKeyTest)
     tree.setValue(oneKeyTest, zeroKeyTest)

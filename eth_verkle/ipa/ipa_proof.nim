@@ -67,14 +67,8 @@ proc comparatorFor2DimArrays*(a, b: seq[byte]): int=
 #
 #########################################################################
 
-proc hexComparator* (x,y: string): int=
-  let xi = parseHexInt(x)
-  let yi = parseHexInt(y)
-  if xi < yi: return -1
-  elif xi > yi: return 1
-  else: return 0
-
-
+proc hexComparator* (a,b: string): int=
+  return cmp(a.toLowerAscii(), b.toLowerAscii())
 
 #########################################################################
 #
@@ -167,12 +161,12 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
       resCis = res.Cis[i].serializePoint()
       if res.cisZisTup.hasKey(resCis) != true:
         res.cisZisTup[resCis] = initTable[int, bool]()
-      res.cisZisTup[resCis][res.Zis[i]] = true
+      discard res.cisZisTup[resCis].hasKeyOrPut(res.Zis[i], true)
 
   for i in 0 ..< other.Cis.len:
     var otherCis: Bytes32
     otherCis = other.Cis[i].serializePoint()
-    if res.cisZisTup.hasKey(otherCis) != false:
+    if res.cisZisTup.hasKey(otherCis) != true:
       res.cisZisTup[otherCis] = initTable[int, bool]()
 
     if res.cisZisTup[otherCis].hasKey(other.Zis[i]):
@@ -182,15 +176,16 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
     res.Cis.add(other.Cis[i])
     res.Zis.add(other.Zis[i])
 
+    debugEcho "Working 7.5.."
     if res.Fis.len > 0:
-      for i in 0 ..< VKTDomain:
+      for i in 0 ..< res.Fis.len:
         res.Fis[i] = other.Fis[i]
 
     for path, c in other.CommByPath.pairs():
       if not res.CommByPath.hasKey(path):
         res.CommByPath[path] = c
 
-    for i in 0 ..< 256:
+    for i in 0 ..< res.Vals.len:
       res.Vals[i] = other.Vals[i]
 
   #########################################################################
@@ -507,10 +502,11 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList): (ProofElements, se
 proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: var seq[seq[byte]]): bool=
   keys.sort(comparatorFor2DimArrays)
 
+  var check = false
   debugEcho "Working 3"
-  discard root.getProofItems(keys)
+  (pEl, outs, outStem, check) = root.getProofItems(keys)
 
-  return true
+  return check
 
 proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var KeyList, pEl: var ProofElements, es: var seq[byte], poass: var seq[seq[byte]], postvals: var seq[seq[byte]]): bool=
   ## this function leverages the logic that is used both in the proving and verifying methods.
@@ -555,10 +551,10 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
   var config {.noInit.}: IPAConf
   discard config.generateIPAConfiguration()
 
-  var cis {.noInit.}: seq[Point]
+  # var cis {.noInit.}: seq[Point]
 
-  for i in 0 ..< pEl.Cis.len:
-    cis[i] = pEl.Cis[i]
+  # for i in 0 ..< pEl.Cis.len:
+  #   cis[i] = pEl.Cis[i]
 
   var fis: array[VKTDomain, array[VKTDomain, Field]]
   debugEcho "Working 1.1"
@@ -573,15 +569,19 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
   debugEcho pEl.Cis.len
   checks = mprv.createVKTMultiproof(config, pEl.Cis, fis, pEl.Zis)
 
-  var paths = newSeq[string](pEl.CommByPath.len - 1)
+  var paths = newSeq[string](pEl.CommByPath.len)
   for path, point in pEl.CommByPath:
     if path.len > 0:
       paths.add(path)
 
+  debugEcho "Comm by path len"
+  debugEcho pEl.CommByPath.len
+
   paths.sort(hexComparator)
-  var cis2 = newSeq[Point](pEl.CommByPath.len - 1)
+  var cis2 = newSeq[Point](pEl.CommByPath.len)
   for i in 0 ..< paths.len:
-    cis2[i] = pEl.CommByPath[paths[i]]
+    if pEl.CommByPath.hasKey(paths[i]):
+      cis2.add(pEl.CommByPath[paths[i]])
 
   var vktproofutils: VerkleProofUtils
   vktproofutils.Multipoint = mprv
