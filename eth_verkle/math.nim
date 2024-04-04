@@ -184,6 +184,10 @@ proc banderwagonMultiMapToScalarField*(fields: openArray[ptr Field], points: ope
 proc banderwagonAddPoint*(dst: var Point, src: Point) =
   dst.sum(dst, src)
 
+proc banderwagonPointEqual*(dst, src: Point): bool =
+  if (src == dst).bool() == true:
+    return true
+  return false
 
 proc bandesnatchSubtract*(x, y: Field): Field =
   result.diff(x, y)

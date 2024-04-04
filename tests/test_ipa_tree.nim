@@ -8,6 +8,7 @@
 
 import
   unittest,
+  sequtils,
   ../eth_verkle/ipa/ipa_proof,
   ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment]
@@ -50,19 +51,20 @@ suite "Test Proof of Empty Tree":
     tree.setValue(zeroKeyTest, zeroKeyTest)
     tree.setValue(oneKeyTest, zeroKeyTest)
     tree.setValue(ffx32KeyTest, zeroKeyTest)
-    tree.updateAllCommitments()
+
+    echo "Depth"
+    echo tree.depth
 
     var postroot = newTree()
 
     var proof: VerkleProofUtils
     var pEl: ProofElements
     var checker = false
-    var values = newSeq[Bytes32](1)
-
-    for i in 0 ..< 32:
-     values[0][i] = ffx32KeyTest[i]
+    var values: seq[seq[byte]]
+    values.add(ffx32KeyTest.toSeq)
 
     echo values.len
+    echo values[0].toHex()
 
     checker = tree.makeVKTMultiproof(postroot, values, proof, pEl)
     check checker == true

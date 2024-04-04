@@ -6,6 +6,7 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
+  typeinfo,
   std/algorithm,
   std/tables,
   std/strutils,
@@ -101,11 +102,11 @@ proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
   if keys.len == 1:
     return @[keys]
 
-  var groups: seq[KeyList]
+  var groups = newSeq[KeyList](keys.len)
   var firstKey = 0
   var lastKey = 1
 
-  while lastKey < keys.len:
+  for i in lastKey ..< keys.len:
     let key = keys[lastKey]
     let keyIdx = offsetKey(key, depth)
     let prevIdx = offsetKey(keys[lastKey - 1], depth)
@@ -114,7 +115,6 @@ proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
       groups.add(keys[firstKey ..< lastKey])
       firstKey = lastKey
 
-    inc(lastKey)
   groups.add(keys[firstKey ..< lastKey])
 
   return groups
@@ -123,7 +123,7 @@ proc keyToStem* (key: openArray[byte]): seq[byte]=
   if key.len < 31:
     return @[]
   
-  return key[0..31]
+  return key[0..<31]
 
 proc equalPaths* (key1, key2: openArray[byte]): bool=
   var outcome = false
@@ -199,136 +199,33 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
 #
 #########################################################################
 
-proc getProofItems* (n: var BranchesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: var seq[seq[byte]]): bool=
-
-  var groups = groupKeys(keys, n.depth)
-
-  var extStatuses {.noInit.}: seq[byte]
-  var poaStatuses: seq[seq[byte]]
-
-  var pElem: ProofElements
-
-  pElem.Cis = @[]
-  pElem.Zis = @[]
-  pElem.CommByPath = initTable[string, Point]()
-  pElem.cisZisTup = initTable[Bytes32, Table[int, bool]]()
-
-  var fi: array[VKTDomain, Field]
-  var points: array[VKTDomain, Point]
-
-  for i in 0 ..< n.branches.len:
-    var child = n.branches[i]
-    if child != nil:
-      var c = child
-      # if child of HashedNode:
-      #   var childPath = newSeq[byte](n.depth + 1 + 64)
-      #   childPath.add(keys[0][0..n.depth])
-      #   childPath[n.depth] = uint8(i)
-      #   var c = parseNode(childPath, n.depth + 1)
-      #   n.branches[i] = c
-      # else:
-      # c = child
-      points[i] = c.commitment
-    else:
-      points[i] = IdentityPoint
-
-  debugEcho "Working 4"
-  fi.banderwagonMultiMapToScalarField(points)
-
-  for i in 0 ..< groups.len:
-    var childIdx = offsetKey(groups[0][i], n.depth)
-
-    var yi: Field 
-    yi = fi[childIdx]
-
-    pElem.Cis.add(n.commitment)
-    pElem.Zis.add(int(childIdx))
-    pElem.Yis.add(yi)
-    for i in 0 ..< VKTDomain:
-      for j in 0 ..< VKTDomain:
-        pElem.Fis[i][j] = fi[j]
-    
-    var inter: seq[byte]
-    inter = groups[0][i][0..n.depth]
-    var inter_hex = inter.toHex()
-    pElem.CommByPath[inter_hex] = n.commitment
-
-  for i in 0 ..< groups.len:
-    var childIdx = offsetKey(groups[0][i], n.depth)
-
-    #TODO: Cover cases for Unknown Nodes
-    ## Special case of a proof of absence: no children
-    ## commitment, or the value is at 0.
-    if n.branches[childIdx].isNil() == true:
-      var addedStems: Table[string, bool] = initTable[string, bool]()
-
-      for j in 0 ..< groups[i].len:
-        var stem: seq[byte] 
-        stem = keyToStem(groups[i][j])
-        var stemStr = stem.toHex()
-
-        if addedStems.hasKeyOrPut(stemStr, true):
-          extStatuses.add(uint8(extStatusAbsentEmpty) or ((n.depth + 1) shl 3))
-          addedStems[stemStr] = true
-
-        # for k in 0 ..< pElem.Vals.len:
-        #   pElem.Vals[i][] = nil
-
-      continue
-
-    var pElemAdd: ProofElements
-    var extStatuses2: seq[byte]
-    var other: seq[seq[byte]]
-
-    debugEcho "Working 5"
-    var branch = newBranchesNode(n.depth + 1)
-    n.branches[childIdx] = branch
-    debugEcho "Working 5.1"
-    
-    discard branch.getProofItems(groups[i], pElemAdd, extStatuses2, other)
-
-    var poaseq: seq[seq[byte]] = newSeq[seq[byte]](256)
-    var otherseq: seq[seq[byte]] = newSeq[seq[byte]](256)
-
-    for i in 0 ..< 256:
-      poaseq[i] = newSeq[byte](32)
-      otherseq[i] = newSeq[byte](32)
-      for j in 0 ..< 32:
-        poaseq[i][j] = poaStatuses[i][j]
-        otherseq[i][j] = other[i][j]
-
-    pElem.mergeProofElements(pElemAdd)
-    debugEcho "Working 6"
-    poaseq.add(otherseq)
-
-    var finalpoa: array[256, Bytes32]
-    for i in 0 ..< 256:
-      for j in 0 ..< 32:
-        finalpoa[i][j] = poaseq[i][j]
-
-    extStatuses.add(extStatuses2)
-    return true
-
-
-proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofElements, extStatuses: var seq[byte], poaStatuses: var seq[seq[byte]]): bool=
+proc getProofItems* (n: var ValuesNode, keys: var KeyList): (ProofElements, seq[byte], seq[seq[byte]], bool)=
 
   var polynom = newSeq[Field](VKTDomain)
   
+  var poaStatuses = newSeq[seq[byte]](256)
+  for i in 0 ..< 31:
+    poaStatuses[i] = newSeq[byte](31)
+
+  var extStatuses: seq[byte]
+
+  var pElem: ProofElements
   pElem.Cis.add(n.commitment)
   pElem.Cis.add(n.commitment)
 
   pElem.Zis.add(0)
   pElem.Zis.add(1)
 
-  pElem.Yis[0] = polynom[0]
-  pElem.Yis[1] = polynom[1]
+  pElem.Yis.add(polynom[0])
+  pElem.Yis.add(polynom[1])
 
   pElem.Fis.add(polynom)
   pElem.Fis.add(polynom)
 
-  for i in 0 ..< VKTDomain:
-    for j in 0 ..< 32:
-      pElem.Vals[i][j] = uint8(0)
+  var zeroSeq: array[1, byte]
+  zeroSeq[0] = uint8(0)
+
+  pElem.Vals.add(zeroSeq.toSeq)
 
   pElem.CommByPath = initTable[string, Point]()
 
@@ -363,10 +260,10 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
     var check = false
     check = fieldd.banderwagonMultiMapToScalarFieldWithDecision(pointt)
     if check == false:
-      return check
+      return (pElem, @[], @[@[]], false)
 
   elif has_c1 == true or has_c2 == true:
-    return false
+    return (pElem, @[], @[@[]], false)
 
   if has_c1:
     pElem.Cis.add(n.commitment)
@@ -398,8 +295,7 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
       ## proof of presence, we will clear the list since the proof of presence
       ## will be enough to provide the stem
       if extStatuses.len == 0:
-        for k in 0 ..< poaStatuses[idx].len:
-          poaStatuses[idx][k] = n.stem[k]
+        poaStatuses.add(n.stem.toSeq)
         inc(idx)
 
       ## Add an extension status absent for this stem.
@@ -409,7 +305,7 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
       if addedStems.hasKeyOrPut(stemStr, true):
         extStatuses.add(uint8(uint8(extStatusAbsentOther) or (n.depth shl 3)))
       
-      pElem.Vals[idx2].add(@[])
+      pElem.Vals.add(@[])
       inc(idx2)
       continue
 
@@ -427,15 +323,18 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
     var scomcheck: bool
     var scom: Point
 
+    debugEcho "Working 7..."
+
     if suffix >= 128:
-      discard fillSuffixTreePoly(suffixPolynom, n.values[128..n.values.len])
+      discard fillSuffixTreePoly(suffixPolynom, n.values[128..^1])
       scom = n.c2
     else:
       discard fillSuffixTreePoly(suffixPolynom, n.values[0..<128])
       scom = n.c1
 
     var leaves: array[2, Field]
-    if n.values[suffix].isNil():
+    debugEcho "Working 7.2..."
+    if n.values[suffix] != nil:
       ## Proof of absence: case of a missing value.
       ## 
       ## Suffix tree is present as a child of the extension
@@ -443,14 +342,14 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
       ## only happen when the leaf has never been written to 
       ## since after deletion the value would be set to zero 
       ## but still contain the leaf marker 2^128.
-
-      leaves[0] = FrZero 
-      leaves[1] = FrZero
-    
-    else:
       leaves[0] = suffixPolynom[2*suffix]
       leaves[1] = suffixPolynom[2*suffix + 1]
 
+    
+    else:
+      leaves[0] = FrZero 
+      leaves[1] = FrZero
+    
     pElem.Cis.add(scom)
     pElem.Cis.add(scom)
 
@@ -463,23 +362,153 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList, pElem: var ProofEleme
     pElem.Fis.add(suffixPolynom)
     pElem.Fis.add(suffixPolynom)
     
-    pElem.Vals.add(n.values[StemSize][].toSeq)
+    debugEcho "Working 7.3.."
+    if n.values[StemSize] != nil:
+      pElem.Vals.add(n.values[StemSize][].toSeq)
+
+    else:
+      pElem.Vals.add(@[])
 
     var stemStr: string = cast[string](keyToStem(key))
-    if addedStems.hasKeyOrPut(stemStr, true):
+
+    debugEcho "Working 7.3.1.."
+    if addedStems.hasKeyOrPut(stemStr, true) == false:
       extStatuses.add(uint8(uint8(extStatusPresent) or (n.depth shl 3)))
 
+    debugEcho "Working 7.4.."
     let slotPath = $(key[0 ..< n.depth]) & $(char(2 + int(suffix) div 128))
     discard pElem.CommByPath.hasKeyOrPut(slotPath, scom)
 
-  return true
+  return (pElem, extStatuses, poaStatuses, true)
+
+proc getProofItems* (n: var BranchesNode, keys: var KeyList): (ProofElements, seq[byte], seq[seq[byte]], bool)=
+
+  var groups = groupKeys(keys, n.depth)
+  debugEcho "Groups len"
+  debugEcho groups.len
+  debugEcho groups[0].len
+  debugEcho groups[0][0].toHex()
+  var poaStatuses = newSeq[seq[byte]](256)
+  for i in 0 ..< 31:
+    poaStatuses[i] = newSeq[byte](31)
+
+  var extStatuses: seq[byte]
+
+  var pElem: ProofElements
+
+  pElem.Cis = @[]
+  pElem.Zis = @[]
+  pElem.Yis = @[]
+  pElem.Fis = @[@[]]
+  pElem.CommByPath = initTable[string, Point]()
+  pElem.cisZisTup = initTable[Bytes32, Table[int, bool]]()
+
+  var fi: array[VKTDomain, Field]
+  var points: array[VKTDomain, Point]
+
+  for i in 0 ..< n.branches.len:
+    var child = n.branches[i]
+    if child != nil:
+      var c: Node
+      # if child of HashedNode:
+      #   var childPath = newSeq[byte](n.depth + 1)
+      #   for i in 0 ..< int(n.depth):
+      #     childpath[i] = keys[0][i]
+      #   childPath[n.depth] = uint8(i)
+      #   var c = parseNode(childPath, n.depth + 1)
+      #   debugEcho "Check parse node"
+      #   n.branches[i] = c
+      # else:
+      c = child
+      points[i] = c.commitment
+    else:
+      points[i] = IdentityPoint
+
+  debugEcho "Working 4"
+  fi.banderwagonMultiMapToScalarField(points)
+  debugEcho groups.len
+  debugEcho groups[0].len
+  debugEcho groups[0][0].len
+
+  for i in 0 ..< groups.len:
+    var group = groups[i]
+    var childIdx = offsetKey(group[0], n.depth)
+
+    var yi: Field 
+    yi = fi[childIdx]
+
+    pElem.Cis.add(n.commitment)
+    pElem.Zis.add(int(childIdx))
+    pElem.Yis.add(yi)
+    pElem.Fis.add(fi.toSeq)
+    
+    debugEcho "Working 4.1"
+    debugEcho n.depth
+    discard pElem.CommByPath.hasKeyOrPut($(group[0][^1]), n.commitment)
+
+    debugEcho "Working 4.2"
+  for i in 0 ..< groups.len:
+    var group = groups[i]
+    var childIdx = offsetKey(group[0], n.depth)
+
+    #TODO: Cover cases for Unknown Nodes
+    ## Special case of a proof of absence: no children
+    ## commitment, or the value is at 0.
+    if n.branches[childIdx].commitment.banderwagonPointEqual(IdentityPoint):
+      var addedStems: Table[string, bool] = initTable[string, bool]()
+
+      for j in 0 ..< group.len:
+        var stem: seq[byte] 
+        stem = keyToStem(group[j])
+        var stemStr = $(stem)
+
+        if addedStems.hasKeyOrPut(stemStr, true) == false:
+          extStatuses.add(uint8(extStatusAbsentEmpty) or ((n.depth + 1) shl 3))
+
+        pElem.Vals.add(@[])
+
+      continue
+
+    var pElemAdd: ProofElements
+    var other = newSeq[seq[byte]](256)
+    for i in 0 ..< 31:
+      other[i] = newSeq[byte](31)
+
+    var extStatuses2 = newSeq[byte](1)
+    var checks = false
+    debugEcho "Working 5"
+    # if n.branches[childIdx] of BranchesNode:
+    #   # n.snapshotChildCommitment(childIdx)
+    #   # n = n.branches[childIdx].BranchesNode
+    if n.branches[childIdx] != nil:
+      if n.branches[childIdx] of BranchesNode:
+        debugEcho "Working 5.1"
+        (pElemAdd, extStatuses2, other, checks) = n.branches[childIdx].BranchesNode.getProofItems(group)
+
+      elif n.branches[childIdx] of ValuesNode:
+        debugEcho "Working 5.2"
+        # var vn = ((ValuesNode)n.branches[childIdx])
+        (pElemAdd, extStatuses2, other, checks) = n.branches[childIdx].ValuesNode.getProofItems(group)
+
+      pElem.mergeProofElements(pElemAdd)
+      debugEcho "Working 5.5"
+      poaStatuses.add(other)
+
+      # # var finalpoa: array[256, Bytes32]
+      # # for i in 0 ..< 256:
+      # #   for j in 0 ..< 32:
+      # #     finalpoa[i][j] = poaseq[i][j]
+
+      extStatuses.add(extStatuses2)
+
+  return (pElem, extStatuses, poaStatuses, true)
 
 
 proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pEl: var ProofElements, outs: var seq[byte], outStem: var seq[seq[byte]]): bool=
   keys.sort(comparatorFor2DimArrays)
 
   debugEcho "Working 3"
-  discard root.getProofItems(keys, pEl, outs, outStem)
+  discard root.getProofItems(keys)
 
   return true
 
@@ -540,6 +569,8 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
 
   var mprv {.noInit.}: Multipoint
   var checks: bool
+  debugEcho "Cis len"
+  debugEcho pEl.Cis.len
   checks = mprv.createVKTMultiproof(config, pEl.Cis, fis, pEl.Zis)
 
   var paths = newSeq[string](pEl.CommByPath.len - 1)
