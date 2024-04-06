@@ -175,8 +175,8 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
     res.cisZisTup[otherCis][other.Zis[i]] = true
     res.Cis.add(other.Cis[i])
     res.Zis.add(other.Zis[i])
+    res.Yis.add(other.Yis[i])
 
-    debugEcho "Working 7.5.."
     if res.Fis.len > 0:
       for i in 0 ..< res.Fis.len:
         res.Fis[i] = other.Fis[i]
@@ -216,6 +216,7 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList): (ProofElements, seq[
 
   pElem.Fis.add(polynom)
   pElem.Fis.add(polynom)
+
 
   var zeroSeq: array[1, byte]
   zeroSeq[0] = uint8(0)
@@ -318,8 +319,6 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList): (ProofElements, seq[
     var scomcheck: bool
     var scom: Point
 
-    debugEcho "Working 7..."
-
     if suffix >= 128:
       discard fillSuffixTreePoly(suffixPolynom, n.values[128..^1])
       scom = n.c2
@@ -328,7 +327,7 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList): (ProofElements, seq[
       scom = n.c1
 
     var leaves: array[2, Field]
-    debugEcho "Working 7.2..."
+
     if n.values[suffix] != nil:
       ## Proof of absence: case of a missing value.
       ## 
@@ -356,8 +355,7 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList): (ProofElements, seq[
 
     pElem.Fis.add(suffixPolynom)
     pElem.Fis.add(suffixPolynom)
-    
-    debugEcho "Working 7.3.."
+
     if n.values[StemSize] != nil:
       pElem.Vals.add(n.values[StemSize][].toSeq)
 
@@ -366,11 +364,9 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList): (ProofElements, seq[
 
     var stemStr: string = cast[string](keyToStem(key))
 
-    debugEcho "Working 7.3.1.."
     if addedStems.hasKeyOrPut(stemStr, true) == false:
       extStatuses.add(uint8(uint8(extStatusPresent) or (n.depth shl 3)))
 
-    debugEcho "Working 7.4.."
     let slotPath = $(key[0 ..< n.depth]) & $(char(2 + int(suffix) div 128))
     discard pElem.CommByPath.hasKeyOrPut(slotPath, scom)
 
@@ -379,10 +375,7 @@ proc getProofItems* (n: var ValuesNode, keys: var KeyList): (ProofElements, seq[
 proc getProofItems* (n: var BranchesNode, keys: var KeyList): (ProofElements, seq[byte], seq[seq[byte]], bool)=
 
   var groups = groupKeys(keys, n.depth)
-  debugEcho "Groups len"
-  debugEcho groups.len
-  debugEcho groups[0].len
-  debugEcho groups[0][0].toHex()
+
   var poaStatuses = newSeq[seq[byte]](256)
   for i in 0 ..< 31:
     poaStatuses[i] = newSeq[byte](31)
@@ -419,11 +412,7 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList): (ProofElements, se
     else:
       points[i] = IdentityPoint
 
-  debugEcho "Working 4"
   fi.banderwagonMultiMapToScalarField(points)
-  debugEcho groups.len
-  debugEcho groups[0].len
-  debugEcho groups[0][0].len
 
   for i in 0 ..< groups.len:
     var group = groups[i]
@@ -436,12 +425,9 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList): (ProofElements, se
     pElem.Zis.add(int(childIdx))
     pElem.Yis.add(yi)
     pElem.Fis.add(fi.toSeq)
-    
-    debugEcho "Working 4.1"
-    debugEcho n.depth
+
     discard pElem.CommByPath.hasKeyOrPut($(group[0][^1]), n.commitment)
 
-    debugEcho "Working 4.2"
   for i in 0 ..< groups.len:
     var group = groups[i]
     var childIdx = offsetKey(group[0], n.depth)
@@ -471,22 +457,22 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList): (ProofElements, se
 
     var extStatuses2 = newSeq[byte](1)
     var checks = false
-    debugEcho "Working 5"
+
     # if n.branches[childIdx] of BranchesNode:
     #   # n.snapshotChildCommitment(childIdx)
     #   # n = n.branches[childIdx].BranchesNode
     if n.branches[childIdx] != nil:
       if n.branches[childIdx] of BranchesNode:
-        debugEcho "Working 5.1"
+
         (pElemAdd, extStatuses2, other, checks) = n.branches[childIdx].BranchesNode.getProofItems(group)
 
       elif n.branches[childIdx] of ValuesNode:
-        debugEcho "Working 5.2"
+
         # var vn = ((ValuesNode)n.branches[childIdx])
         (pElemAdd, extStatuses2, other, checks) = n.branches[childIdx].ValuesNode.getProofItems(group)
 
       pElem.mergeProofElements(pElemAdd)
-      debugEcho "Working 5.5"
+
       poaStatuses.add(other)
 
       # # var finalpoa: array[256, Bytes32]
@@ -503,7 +489,7 @@ proc getCommitmentsForMultiproof* (root: var BranchesNode, keys: var KeyList, pE
   keys.sort(comparatorFor2DimArrays)
 
   var check = false
-  debugEcho "Working 3"
+
   (pEl, outs, outStem, check) = root.getProofItems(keys)
 
   return check
@@ -512,11 +498,10 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   ## this function leverages the logic that is used both in the proving and verifying methods.
   ## it takes a pre-state tree and an optional post-state tree, extracts the proof data from them and returns
   ## all the items required to build/verify a proof.
-  debugEcho "Working <2"
+
   if keys.len == 0:
     return false
 
-  debugEcho "Working 2"
   var check = false
   check = preroot.getCommitmentsForMultiproof(keys, pEl, es, poass)
   doAssert check == true, "Issue with get commitments for multiproof!"
@@ -536,18 +521,17 @@ proc getProofElementsFromTree* (preroot, postroot: var BranchesNode, keys: var K
   ## 3: values to be inserted in the post-state trie for serialization
   return true
 
-proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList, vktproofutils: var VerkleProofUtils, pEl: var ProofElements): bool=
+proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList): (VerkleProofUtils, seq[Point], seq[int], seq[Field], bool)=
 
   var es: seq[byte]
   var poass: seq[seq[byte]]
   var check: bool
   var postvals: seq[seq[byte]]
-
-  debugEcho "Working 1"
+  var vktproofutils: VerkleProofUtils
+  var pEl: ProofElements
   
   check = preroot.getProofElementsFromTree(postroot, keys, pEl, es, poass, postvals)
 
-  debugEcho "Working 6"
   var config {.noInit.}: IPAConf
   discard config.generateIPAConfiguration()
 
@@ -557,7 +541,6 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
   #   cis[i] = pEl.Cis[i]
 
   var fis: array[VKTDomain, array[VKTDomain, Field]]
-  debugEcho "Working 1.1"
 
   for i in 0 ..< pEl.Fis.len:
     for j in 0 ..< pEl.Fis[i].len:
@@ -565,8 +548,7 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
 
   var mprv {.noInit.}: Multipoint
   var checks: bool
-  debugEcho "Cis len"
-  debugEcho pEl.Cis.len
+
   checks = mprv.createVKTMultiproof(config, pEl.Cis, fis, pEl.Zis)
 
   var paths = newSeq[string](pEl.CommByPath.len)
@@ -574,8 +556,6 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
     if path.len > 0:
       paths.add(path)
 
-  debugEcho "Comm by path len"
-  debugEcho pEl.CommByPath.len
 
   paths.sort(hexComparator)
   var cis2 = newSeq[Point](pEl.CommByPath.len)
@@ -583,7 +563,6 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
     if pEl.CommByPath.hasKey(paths[i]):
       cis2.add(pEl.CommByPath[paths[i]])
 
-  var vktproofutils: VerkleProofUtils
   vktproofutils.Multipoint = mprv
   vktproofutils.Cs = cis2
   vktproofutils.ExtensionStatus = es
@@ -592,10 +571,11 @@ proc makeVKTMultiproof* (preroot, postroot: var BranchesNode, keys: var KeyList,
   vktproofutils.PreStateValues = pEl.Vals
   vktproofutils.PostStateValues = postvals
 
-  return true
+  return (vktproofutils, pEl.Cis, pEl.Zis, pEl.Yis, true)
 
 proc verifyVerkleProof* (proof: var VerkleProofUtils, config: IPAConf, Cs: var openArray[Point], indices: var openArray[int], ys: var openArray[Field]): bool =
   var checker = false
+
   checker = verifyVKTMultiproof(proof.Multipoint, config, Cs, ys, indices)
 
   return checker

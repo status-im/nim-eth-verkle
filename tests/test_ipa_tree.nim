@@ -9,6 +9,7 @@
 import
   unittest,
   sequtils,
+  times,
   ../eth_verkle/ipa/ipa_proof,
   ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment]
@@ -52,21 +53,32 @@ suite "Test Proof of Empty Tree":
     tree.setValue(oneKeyTest, zeroKeyTest)
     tree.setValue(ffx32KeyTest, zeroKeyTest)
 
-    echo "Depth"
-    echo tree.depth
-
     var postroot = newTree()
 
     var proof: VerkleProofUtils
-    var pEl: ProofElements
+
+    var cis: seq[Point]
+    var zis: seq[int]
+    var yis: seq[Field]
+
     var checker = false
     var values: seq[seq[byte]]
     values.add(ffx32KeyTest.toSeq)
 
-    echo values.len
-    echo values[0].toHex()
+    var time = cpuTime()
+    (proof, cis, zis, yis, checker) = tree.makeVKTMultiproof(postroot, values)
+    var endTime = cpuTime()
+    echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
+    check checker == true
 
-    checker = tree.makeVKTMultiproof(postroot, values, proof, pEl)
+
+    var config: IPAConf
+    discard config.generateIPAConfiguration()
+
+    var time2 = cpuTime()
+    checker = proof.Multipoint.verifyVKTMultiproof(config, cis, yis, zis)
+    var endTime2 = cpuTime()
+    echo "Time taken to verify that Multiproof ", endTime2 - time2
     check checker == true
 
 
