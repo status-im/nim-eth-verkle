@@ -7,6 +7,7 @@
 
 
 import
+  random,
   unittest,
   sequtils,
   times,
@@ -80,5 +81,63 @@ suite "Test Proof of Empty Tree":
     var endTime2 = cpuTime()
     echo "Time taken to verify that Multiproof ", endTime2 - time2
     check checker == true
+
+  test "Make Verkle Multiproof for Multiple leaf insertions":
+    let leafCount = 100
+    var keys = newSeq[Bytes32](1000)
+    var tree = newTree()
+
+    for i in 0 ..< leafCount:
+      for j in 0 ..< 32:
+        keys[i][j] = rand(255).byte
+      
+      tree.setValue(keys[i], fourtyKeyTest)
+
+    tree.updateAllCommitments()
+
+    var proof: VerkleProofUtils
+    var postroot = newTree()
+    var cis: seq[Point]
+    var zis: seq[int]
+    var yis: seq[Field]
+
+    var interim_keys: seq[seq[byte]]
+    interim_keys.add(keys[0].toSeq)
+    interim_keys.add(keys[1].toSeq)
+
+    var time = cpuTime()
+    var checker = false
+    (proof, cis, zis, yis, checker) = tree.makeVKTMultiproof(postroot, interim_keys)
+    var endTime = cpuTime()
+    echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
+    check checker == true
+    discard postroot
+    var outs: seq[byte]
+    var outStem: seq[seq[byte]]
+    checker = false
+
+    var pel: ProofElements
+    checker = tree.getCommitmentsForMultiproof(interim_keys, pel, outs, outStem)
+
+    var config: IPAConf
+    discard config.generateIPAConfiguration()
+
+    var time2 = cpuTime()
+    checker = proof.Multipoint.verifyVKTMultiproof(config, pel.Cis, pel.Yis, pel.Zis)
+    var endTime2 = cpuTime()
+    echo "Time taken to verify that Multiproof ", endTime2 - time2
+    check checker == true
+
+
+
+
+
+
+
+      
+
+
+
+
 
 
