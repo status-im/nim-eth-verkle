@@ -96,20 +96,24 @@ proc groupKeys*(keys: KeyList, depth: uint8): seq[KeyList]=
   if keys.len == 1:
     return @[keys]
 
-  var groups = newSeq[KeyList](keys.len)
+  var groups: seq[KeyList]
   var firstKey = 0
-  var lastKey = 1
+  var lastKey = 0
 
-  for i in lastKey ..< keys.len:
+  while lastkey < keys.len:
     let key = keys[lastKey]
     let keyIdx = offsetKey(key, depth)
-    let prevIdx = offsetKey(keys[lastKey - 1], depth)
+    let prevIdx = if lastKey > 0: offsetKey(keys[lastKey - 1], depth) else: -1
 
-    if keyIdx != prevIdx:
-      groups.add(keys[firstKey ..< lastKey])
-      firstKey = lastKey
+    if lastKey > 0 and keyIdx != prevIdx:
+      groups.add(keys[firstkey ..< lastkey])  # Use slice notation ..< for inclusive start, exclusive end
+      firstkey = lastkey
 
-  groups.add(keys[firstKey ..< lastKey])
+    inc(lastkey)
+
+  # If the last group extends to the end of keys, add it as well
+  if firstkey < len(keys):
+    groups.add(keys[firstkey ..< len(keys)])
 
   return groups
 
