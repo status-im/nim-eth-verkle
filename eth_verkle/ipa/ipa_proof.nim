@@ -179,6 +179,7 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
     res.cisZisTup[otherCis][other.Zis[i]] = true
     res.Cis.add(other.Cis[i])
     res.Zis.add(other.Zis[i])
+    res.Yis.add(other.Yis[i])
 
     debugEcho "Working 7.5.."
     if res.Fis.len > 0:
