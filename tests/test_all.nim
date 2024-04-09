@@ -151,11 +151,7 @@ suite "main":
       var key, value: Bytes32
       multiUpdate.setValue(key, value)
       multiUpdate.setMultipleValues(stem, values)
-      echo "Depth...."
-      echo multicreate.depth
       multiUpdate.updateAllCommitments()
-      echo "Depth...."
-      echo multicreate.depth
       let multiUpdateEnd = cpuTime()
       when TraceLogs: echo &"multiUpdate root commitment: {multiUpdate.serializeCommitment.toHex}. Took: {multiUpdateEnd - multiUpdateStart:.3f} secs"
       check multiUpdate.serializeCommitment.toHex == updatedOneByOne.serializeCommitment.toHex

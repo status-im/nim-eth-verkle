@@ -114,7 +114,6 @@ suite "Commitment Tests":
 
     tree.setValue(key4, fourtyKeyTest)
     tree.updateAllCommitments()
-    echo tree.depth
     var newRoot = tree.commitment
     var newInternal = ((BranchesNode)tree.branches[4]).commitment
 
