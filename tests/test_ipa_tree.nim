@@ -103,7 +103,6 @@ suite "Test Proof of Empty Tree":
 
     var interim_keys: seq[seq[byte]]
     interim_keys.add(keys[0].toSeq)
-    # interim_keys.add(keys[1].toSeq)
 
     var time = cpuTime()
     var checker = false
@@ -112,12 +111,6 @@ suite "Test Proof of Empty Tree":
     echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
     check checker == true
     discard postroot
-    # var outs: seq[byte]
-    # var outStem: seq[seq[byte]]
-    # checker = false
-
-    # var pel: ProofElements
-    # checker = tree.getCommitmentsForMultiproof(interim_keys, pel, outs, outStem)
 
     var config: IPAConf
     discard config.generateIPAConfiguration()
@@ -152,21 +145,9 @@ suite "Test Proof of Empty Tree":
     interim_keys[0] = keys[0].toSeq
     interim_keys[1] = keys[1].toSeq
 
-    echo "Interim Keys"
-    echo interim_keys.len
-
-    echo "Len each interim key"
-    echo interim_keys[0].len
-
-
     var time = cpuTime()
     var checker = false
     (proof, cis, zis, yis, checker) = tree.makeVKTMultiproof(postroot, interim_keys)
-
-    echo "CIS ZIS YIS"
-    echo cis.len
-    echo zis.len
-    echo yis.len
 
     var endTime = cpuTime()
     echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
@@ -178,15 +159,6 @@ suite "Test Proof of Empty Tree":
 
     var pel: ProofElements
     checker = tree.getCommitmentsForMultiproof(interim_keys, pel, outs, outStem)
-
-    echo "Cis.len"
-    echo pel.Cis.len
-
-    echo "Zis.len"
-    echo pel.Zis.len
-
-    echo "Yis.len"
-    echo pel.Yis.len
 
     var config: IPAConf
     discard config.generateIPAConfiguration()
