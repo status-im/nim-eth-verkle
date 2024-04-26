@@ -83,14 +83,14 @@ suite "Test Proof of Empty Tree":
     check checker == true
 
   test "Make Verkle Multiproof for Multiple Leaf insertions":
-    let leafCount = 100
+    let leafCount = 1000
     var keys = newSeq[Bytes32](1000)
     var tree = newTree()
 
     for i in 0 ..< leafCount:
       for j in 0 ..< 32:
         keys[i][j] = rand(255).byte
-      
+
       tree.setValue(keys[i], fourtyKeyTest)
 
     tree.updateAllCommitments()
@@ -129,14 +129,14 @@ suite "Test Proof of Empty Tree":
     check checker == true
 
   test "Make Verkle Multiproof for Multiple Leaf insertions 2":
-    let leafCount = 100
+    let leafCount = 1000
     var keys = newSeq[Bytes32](1000)
     var tree = newTree()
 
     for i in 0 ..< leafCount:
       for j in 0 ..< 32:
         keys[i][j] = rand(255).byte
-      
+
       var key = keys[i]
       tree.setValue(key, fourtyKeyTest)
 
@@ -197,16 +197,79 @@ suite "Test Proof of Empty Tree":
     echo "Time taken to verify that Multiproof ", endTime2 - time2
     check checker == true
 
+  test "Test Multiproof and Verify with Multiple Leaves and Asbent Stem":
 
+    let leafCount = 10
 
+    var keys = newSeq[Bytes32](10)
+    var tree = newTree()
 
-
-
-
+    var absentStem = newSeq[byte](StemSize)
+    for i in 0 ..< leafCount:
+      for j in 0 ..< 32:
+        keys[i][j] = rand(255).byte
       
+      var key = keys[i]
+      key[2] = uint8(i)
+      tree.setValue(key, fourtyKeyTest)
+      if i mod 2 == 0:
+        keys.add(key)
+
+      if i == 3:
+        absentStem = key[32..^1]
+
+    tree.updateAllCommitments()
+
+    var absent: Bytes32
+    absent[2] = uint8(3)
+    absent[3] = uint8(1)
+
+    keys.add(absent)
+
+    var proof: VerkleProofUtils
+    var postroot = newTree()
+    var cis: seq[Point]
+    var zis: seq[int]
+    var yis: seq[Field]
+
+    var pass_key = newSeq[seq[byte]](10)
+    for i in 0 ..< 10:
+      pass_key[i] = keys[i].toSeq
+
+    var time = cpuTime()
+    var checker = false
+    (proof, cis, zis, yis, checker) = tree.makeVKTMultiproof(postroot, pass_key)
+
+    echo "CIS ZIS YIS"
+    echo cis.len
+    echo zis.len
+    echo yis.len
+
+    var endTime = cpuTime()
+    echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
 
 
+    var pel: ProofElements
+    var outs: seq[byte]
+    var isAbsent: seq[seq[byte]]
+    checker = false
+    checker = tree.getCommitmentsForMultiproof(pass_key, pel, outs, isAbsent)
 
+    doAssert isAbsent.len != 0, "Should have detected an absent stem!!"
 
+    echo "isAbsent"
+    echo isAbsent[0].toHex()
 
+    echo "absentStem"
+    echo absentStem.toHex()
+    doAssert isAbsent[0].toHex() == absentStem.toHex() or isAbsent[0].toHex() == "0x00000000000000000000000000000000000000000000000000000000000000", "Returning the wrong absent stem!"
+
+    var config: IPAConf
+    discard config.generateIPAConfiguration()
+
+    var time2 = cpuTime()
+    checker = proof.Multipoint.verifyVKTMultiproof(config, pel.Cis, pel.Yis, pel.Zis)
+    var endTime2 = cpuTime()
+    echo "Time taken to verify that Multiproof ", endTime2 - time2
+    check checker == true
 

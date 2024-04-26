@@ -22,7 +22,8 @@ import
 #
 #########################################################################
 
-proc hasStemPix* (mainSlice, pix: seq[byte]): bool=
+proc hasStemPrefix* (mainSlice, pix: seq[byte]): bool=
+  ## hasStemPrefix checks whether the byte slice begins with the same prefix or not
   if pix.len > mainSlice.len:
     return false
 
@@ -182,9 +183,12 @@ proc mergeProofElements* (res: var ProofElements, other: var ProofElements)=
     res.Yis.add(other.Yis[i])
 
     debugEcho "Working 7.5.."
-    if res.Fis.len > 0:
-      for i in 0 ..< res.Fis.len:
-        res.Fis[i] = other.Fis[i]
+    if res.Fis.len != 0:
+      res.Fis.add(other.Fis[i])
+
+    # else:
+    #   for i in 0 ..< other.Fis.len:
+    #     res.Fis[i] = other.Fis[i]
 
     for path, c in other.CommByPath.pairs():
       if not res.CommByPath.hasKey(path):
