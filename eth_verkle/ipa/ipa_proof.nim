@@ -458,7 +458,7 @@ proc getProofItems* (n: var BranchesNode, keys: var KeyList): (ProofElements, se
     #TODO: Cover cases for Unknown Nodes
     ## Special case of a proof of absence: no children
     ## commitment, or the value is at 0.
-    if n.branches[childIdx].commitment.banderwagonPointEqual(IdentityPoint):
+    if n.branches[childIdx].isNil():
       var addedStems: Table[string, bool] = initTable[string, bool]()
 
       for j in 0 ..< group.len:

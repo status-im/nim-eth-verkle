@@ -273,3 +273,159 @@ suite "Test Proof of Empty Tree":
     echo "Time taken to verify that Multiproof ", endTime2 - time2
     check checker == true
 
+  test "Test Multiproof and Verify with Multiple Leaves and Commitment Redundancy":
+
+    var keys = newSeq[Bytes32](2)
+    var tree = newTree()
+
+    keys[0] = zeroKeyTest
+    tree.setValue(keys[0], fourtyKeyTest)
+
+    keys[1] = oneKeyTest
+    tree.setValue(keys[1], fourtyKeyTest)
+
+    tree.updateAllCommitments()
+
+    var proof: VerkleProofUtils
+    var postroot = newTree()
+    var cis: seq[Point]
+    var zis: seq[int]
+    var yis: seq[Field]
+
+
+    var interim_keys = newSeq[seq[byte]](2)
+    interim_keys[0] = keys[0].toSeq
+    interim_keys[1] = keys[1].toSeq
+
+    discard keys
+
+    var time = cpuTime()
+    var checker = false
+    (proof, cis, zis, yis, checker) = tree.makeVKTMultiproof(postroot, interim_keys)
+
+    echo "CIS ZIS YIS"
+    echo cis.len
+    echo zis.len
+    echo yis.len
+
+    var endTime = cpuTime()
+    echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
+    check checker == true
+    discard postroot
+    var outs: seq[byte]
+    var outStem: seq[seq[byte]]
+    checker = false
+
+    var pel: ProofElements
+    checker = tree.getCommitmentsForMultiproof(interim_keys, pel, outs, outStem)
+
+    echo "Cis.len"
+    echo pel.Cis.len
+
+    echo "Zis.len"
+    echo pel.Zis.len
+
+    echo "Yis.len"
+    echo pel.Yis.len
+
+    var config: IPAConf
+    discard config.generateIPAConfiguration()
+
+    var time2 = cpuTime()
+    checker = proof.Multipoint.verifyVKTMultiproof(config, pel.Cis, pel.Yis, pel.Zis)
+
+    var endTime2 = cpuTime()
+    echo "Time taken to verify that Multiproof ", endTime2 - time2
+    check checker == true
+
+  test "Test Proof of Absence Internal Verify":
+
+    var tree = newTree()
+
+    var interim_keys = newSeq[Bytes32](2)
+    interim_keys[0] = zeroKeyTest
+    interim_keys[1] = oneKeyTest
+
+    tree.setValue(interim_keys[0], zeroKeyTest)
+    tree.setValue(interim_keys[1], zeroKeyTest)
+
+    tree.updateAllCommitments()
+
+    var multiprover_keys = newSeq[seq[byte]](1)
+    multiprover_keys[0] = ffx32KeyTest.toSeq
+
+    var proof: VerkleProofUtils
+    var postroot = newTree()
+    var cis: seq[Point]
+    var zis: seq[int]
+    var yis: seq[Field]
+
+    var time = cpuTime()
+    var checker = false
+    (proof, cis, zis, yis, checker) = tree.makeVKTMultiproof(postroot, multiprover_keys)
+
+    echo "CIS ZIS YIS"
+    echo cis.len
+    echo zis.len
+    echo yis.len
+
+    var endTime = cpuTime()
+    echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
+    check checker == true
+    discard postroot
+
+    var config: IPAConf
+    discard config.generateIPAConfiguration()
+
+    var time2 = cpuTime()
+    checker = proof.Multipoint.verifyVKTMultiproof(config, cis, yis, zis)
+    var endTime2 = cpuTime()
+    echo "Time taken to verify that Multiproof ", endTime2 - time2
+    check checker == true
+
+  test "Test Proof of Absence Leaf Verify":
+
+    var tree = newTree()
+
+    var interim_keys = newSeq[Bytes32](2)
+    interim_keys[0] = zeroKeyTest
+    interim_keys[1] = ffx32KeyTest
+
+    tree.setValue(interim_keys[0], zeroKeyTest)
+    tree.setValue(interim_keys[1], zeroKeyTest)
+
+    tree.updateAllCommitments()
+
+    var multiprover_keys = newSeq[seq[byte]](1)
+    multiprover_keys[0] = oneKeyTest.toSeq
+
+    var proof: VerkleProofUtils
+    var postroot = newTree()
+    var cis: seq[Point]
+    var zis: seq[int]
+    var yis: seq[Field]
+
+    var time = cpuTime()
+    var checker = false
+    (proof, cis, zis, yis, checker) = tree.makeVKTMultiproof(postroot, multiprover_keys)
+
+    echo "CIS ZIS YIS"
+    echo cis.len
+    echo zis.len
+    echo yis.len
+
+    var endTime = cpuTime()
+    echo "Time taken to build proof elements from VKT and create multiproof ", endTime - time
+    check checker == true
+    discard postroot
+
+    var config: IPAConf
+    discard config.generateIPAConfiguration()
+
+    var time2 = cpuTime()
+    checker = proof.Multipoint.verifyVKTMultiproof(config, cis, yis, zis)
+    var endTime2 = cpuTime()
+    echo "Time taken to verify that Multiproof ", endTime2 - time2
+    check checker == true
+
+
