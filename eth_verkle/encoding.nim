@@ -10,6 +10,9 @@ import
   ./tree/[tree, operations],
   ./math
 
+export codecs.fromHex
+export codecs.toHex
+
 const
   BranchRLPType:  byte = 1
   LeafRLPType:    byte = 2

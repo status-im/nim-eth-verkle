@@ -12,12 +12,14 @@ import
   std/[streams, tables],
   ../[utils, math]
 
-
 type
   Node* = ref object of RootObj
     ## Base node type
     commitment*: Point
     depth*: uint8
+
+  HashedNode* = ref Node
+    ## TODO: Type that should vary from cl to cl, Node type that is retrieved from the disk
 
   BranchesNode* = ref object of Node
     ## Internal node in the tree that holds references to 256 child nodes (or nil-s)
@@ -29,14 +31,11 @@ type
     stem*:   array[31, byte]
     values*: array[256, ref Bytes32]
     c1*, c2*: Point
-
-
+    poa*: bool
 
 func serializeCommitment*(node: Node): Bytes32 =
   ## Serializes the node's commitment
   node.commitment.serializePoint()
-
-
 
 iterator enumerateTree*(node: BranchesNode):
     tuple[node: Node, index: uint8] =
@@ -70,8 +69,6 @@ iterator enumerateTree*(node: BranchesNode):
         if child of BranchesNode:
           stack.add((child.BranchesNode, 0))
 
-
-
 iterator enumerateModifiedTree*(node: BranchesNode):
     tuple[node: Node, index: uint8] {.closure.} =
   ## Iterates over all the nodes in the tree which were modified, or had one of
@@ -83,8 +80,6 @@ iterator enumerateModifiedTree*(node: BranchesNode):
       if child of BranchesNode:
         for item in enumerateModifiedTree(child.BranchesNode):
           yield item
-
-
 
 iterator enumerateValues*(node: BranchesNode):
     tuple[key: Bytes32, value: ref Bytes32] =

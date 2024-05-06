@@ -5,3 +5,4 @@ bin/*
 testResults/*
 build/
 .DS_Store
+.vscode
