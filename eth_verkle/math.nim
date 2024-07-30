@@ -22,11 +22,9 @@ import
 export finite_fields.`==`
 
 type
-  Bytes32* = array[32, byte]
-    ## A 32-bytes blob that can represent a verkle key or value
+  Bytes32* = array[32, byte] ## A 32-bytes blob that can represent a verkle key or value
   Field* = Fr[Banderwagon]
   Point* = EC_TwEdw_Prj[Fp[Banderwagon]]
-
 
 # Todo: can this be converted to a const?
 var IdentityPoint*: Point
@@ -37,10 +35,9 @@ IdentityPoint.z.setOne()
 var CRS: PolynomialEval[EthVerkleDomain, EC_TwEdw_Aff[Fp[Banderwagon]]]
 CRS.evals.generate_random_points()
 
-
 proc ipaCommitToPoly*(poly: openArray[Field]): Point =
   var polynomial: PolynomialEval[256, Field]
-  
+
   for i in 0 ..< poly.len:
     polynomial.evals[i] = poly[i]
 
@@ -49,40 +46,39 @@ proc ipaCommitToPoly*(poly: openArray[Field]): Point =
 
   CRS.pedersen_commit(result, polynomial)
 
-
-proc banderwagonMultiMapToScalarField*(fields: var openArray[Field], points: openArray[Point]) =
+proc banderwagonMultiMapToScalarField*(
+    fields: var openArray[Field], points: openArray[Point]
+) =
   fields.batchMapToScalarField(points)
 
-
-proc banderwagonMultiMapToScalarField*(fields: openArray[ptr Field], points: openArray[Point]) =
+proc banderwagonMultiMapToScalarField*(
+    fields: openArray[ptr Field], points: openArray[Point]
+) =
   var correctFields: seq[Fr[Banderwagon]] = @[]
   for field in fields:
-    correctFields.add(Fr[Banderwagon](field[]))  # Assuming Fr[Banderwagon] can be initialized from a Field
+    correctFields.add(Fr[Banderwagon](field[]))
+      # Assuming Fr[Banderwagon] can be initialized from a Field
   correctFields.batchMapToScalarField(points)
-  for i in 0..<correctFields.len:
+  for i in 0 ..< correctFields.len:
     fields[i][] = correctFields[i]
-
 
 proc banderwagonAddPoint*(dst: var Point, src: Point) =
   dst.sum(dst, src)
 
-
 proc bandesnatchSubtract*(x, y: Field): Field =
   result.diff(x, y)
-
 
 # SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 proc bandesnatchSetUint64*(z: var Field, v: uint64) =
   z.fromInt(int(v))
 
-
 proc fromLEBytes*(field: var Field, data: openArray[byte]) =
-  var temp{.noinit.}: matchingOrderBigInt(Banderwagon)
+  var temp {.noinit.}: matchingOrderBigInt(Banderwagon)
   temp.unmarshal(data, littleEndian)
   field.fromBig(temp)
 
 proc fromBEBytes*(field: var Field, data: openArray[byte]) =
-  var temp{.noinit.}: matchingOrderBigInt(Banderwagon)
+  var temp {.noinit.}: matchingOrderBigInt(Banderwagon)
   temp.unmarshal(data, bigEndian)
   field.fromBig(temp)
 

@@ -8,14 +8,10 @@
 ##  This module provides the basic verkle tree structure along with enumeration,
 ##  pretty printing and serialization methods
 
-import
-  std/[streams, tables],
-  ../[utils, math]
-
+import std/[streams, tables], ../[utils, math]
 
 type
-  Node* = ref object of RootObj
-    ## Base node type
+  Node* = ref object of RootObj ## Base node type
     commitment*: Point
     depth*: uint8
 
@@ -26,20 +22,15 @@ type
 
   ValuesNode* = ref object of Node
     ## Leaf node in the tree that holds references to 256 values (or nil-s)
-    stem*:   array[31, byte]
+    stem*: array[31, byte]
     values*: array[256, ref Bytes32]
     c1*, c2*: Point
-
-
 
 func serializeCommitment*(node: Node): Bytes32 =
   ## Serializes the node's commitment
   node.commitment.serializePoint()
 
-
-
-iterator enumerateTree*(node: BranchesNode):
-    tuple[node: Node, index: uint8] =
+iterator enumerateTree*(node: BranchesNode): tuple[node: Node, index: uint8] =
   ## Iterates over all the nodes in the tree excluding values, depth-first
 
   # In order to keep this iterator an efficient second-class citizen, we can't
@@ -49,10 +40,9 @@ iterator enumerateTree*(node: BranchesNode):
 
   # As long as we're not finished with the root node...
   while stack.len > 0:
-
     # peek at the current node we're working on
     let last = addr stack[^1]
-    
+
     # If we finished traversing it, pop it from the stack. Next iteration we'll
     # continue with its parent.
     if last.index == last.branch.branches.len:
@@ -63,17 +53,16 @@ iterator enumerateTree*(node: BranchesNode):
       inc(last.index)
       if child != nil:
         # If the child node is non-empty, return it
-        yield (node: child, index: (last.index-1).uint8)
+        yield (node: child, index: (last.index - 1).uint8)
 
         # If the child is a BranchesNode, we push it to the stack and start
         # iterating its own children next iteration (starting from index 0)
         if child of BranchesNode:
           stack.add((child.BranchesNode, 0))
 
-
-
-iterator enumerateModifiedTree*(node: BranchesNode):
-    tuple[node: Node, index: uint8] {.closure.} =
+iterator enumerateModifiedTree*(
+    node: BranchesNode
+): tuple[node: Node, index: uint8] {.closure.} =
   ## Iterates over all the nodes in the tree which were modified, or had one of
   ## their descendants modified
   if not node.commitmentsSnapshot.isNil:
@@ -84,12 +73,9 @@ iterator enumerateModifiedTree*(node: BranchesNode):
         for item in enumerateModifiedTree(child.BranchesNode):
           yield item
 
-
-
-iterator enumerateValues*(node: BranchesNode):
-    tuple[key: Bytes32, value: ref Bytes32] =
+iterator enumerateValues*(node: BranchesNode): tuple[key: Bytes32, value: ref Bytes32] =
   ## Iterates over all the key-value pairs in the tree
-  
+
   # Iterate over all nodes in the tree (excluding values)
   for n, _ in node.enumerateTree():
     if n of ValuesNode:
@@ -98,11 +84,10 @@ iterator enumerateValues*(node: BranchesNode):
       # its offset to the stem.
       for index, value in n.ValuesNode.values.pairs:
         if value != nil:
-          var key:Bytes32
-          key[0..<31] = n.ValuesNode.stem
+          var key: Bytes32
+          key[0 ..< 31] = n.ValuesNode.stem
           key[31] = index.byte
           yield (key, value)
-
 
 proc printTreeValues*(node: BranchesNode, stream: Stream) =
   ## Writes all the key-value pairs into the given `stream`, in the form:
@@ -116,7 +101,6 @@ proc printTreeValues*(node: BranchesNode, stream: Stream) =
     stream.writeAsHex(value[])
     stream.writeLine()
 
-
 proc `$`*(node: BranchesNode): string =
   ## Returns all the key-value pairs in the tree in the form:
   ## 
@@ -128,12 +112,13 @@ proc `$`*(node: BranchesNode): string =
   stream.flush()
   stream.data
 
-
 proc printTree*(node: BranchesNode, stream: Stream) =
   ## Writes all the nodes and values into the given `stream`.
   ## Outputs a line for each branch, stem and value in the tree, indented by
   ## depth, along with their commitment.
-  stream.write("<Tree root>                                                           Branch. Commitment: ")
+  stream.write(
+    "<Tree root>                                                           Branch. Commitment: "
+  )
   stream.writeAsHex(node.commitment.serializePoint)
   stream.writeLine()
   for n, parentIndex in node.enumerateTree():
@@ -147,13 +132,15 @@ proc printTree*(node: BranchesNode, stream: Stream) =
       stream.writeAsHex(n.commitment.serializePoint)
       stream.writeLine()
     elif n of ValuesNode:
-      stream.writeAsHex(n.ValuesNode.stem[n.depth..^1])
+      stream.writeAsHex(n.ValuesNode.stem[n.depth ..^ 1])
       stream.write("      Leaves. Commitment: ")
       stream.writeAsHex(n.commitment.serializePoint)
       stream.writeLine()
       for valueIndex, value in n.ValuesNode.values.pairs:
         if value != nil:
-          stream.write("                                                                ")
+          stream.write(
+            "                                                                "
+          )
           stream.writeAsHex(valueIndex.byte)
           stream.write("    Leaf.   Value:      ")
           stream.writeAsHex(value[])
