@@ -1,5 +1,5 @@
 #   Nimbus
-#   Copyright (c) 2021-2023 Status Research & Development GmbH
+#   Copyright (c) 2021-2024 Status Research & Development GmbH
 #   Licensed and distributed under either of
 #     * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #     * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,24 +9,22 @@
 ##  obtained from the Constantine library
 
 import
-  ../constantine/constantine/serialization/[codecs_banderwagon, codecs_status_codes],
-  ../constantine/constantine/eth_verkle_ipa/eth_verkle_constants,
-  ../constantine/constantine/hashes,
-  ../constantine/constantine/math/elliptic/ec_twistededwards_projective,
-  ../constantine/constantine/math/arithmetic,
-  ../constantine/constantine/math/config/curves,
-  ../constantine/constantine/math/io/[io_bigints, io_fields],
-  ../constantine/constantine/ethereum_verkle_primitives,
-  ../constantine/constantine/ethereum_verkle_trees
+  constantine/serialization/[codecs_banderwagon, codecs_status_codes],
+  constantine/math/io/[io_bigints, io_fields],
+  constantine/math/arithmetic,
+  constantine/math/ec_twistededwards,
+  constantine/named/algebras,
+  constantine/ethereum_verkle_ipa,
+  constantine/math/polynomials/polynomials,
+  constantine/math/elliptic/ec_multi_scalar_mul,
+  constantine/commitments/pedersen_commitments
 
 export finite_fields.`==`
 
 type
-  Bytes32* = eth_verkle_constants.Bytes
-    ## A 32-bytes blob that can represent a verkle key or value
+  Bytes32* = array[32, byte] ## A 32-bytes blob that can represent a verkle key or value
   Field* = Fr[Banderwagon]
-  Point* = eth_verkle_constants.EC_P
-
+  Point* = EC_TwEdw_Prj[Fp[Banderwagon]]
 
 # Todo: can this be converted to a const?
 var IdentityPoint*: Point
@@ -34,49 +32,53 @@ IdentityPoint.x.setZero()
 IdentityPoint.y.setOne()
 IdentityPoint.z.setOne()
 
-var ipaConfig: IPASettings
-discard ipaConfig.genIPAConfig()
-
+var CRS: PolynomialEval[EthVerkleDomain, EC_TwEdw_Aff[Fp[Banderwagon]]]
+CRS.evals.generate_random_points()
 
 proc ipaCommitToPoly*(poly: openArray[Field]): Point =
-  var comm: Point
-  comm.pedersen_commit_varbasis(ipaConfig.SRS, ipaConfig.SRS.len, poly, poly.len)
-  return comm
+  var polynomial: PolynomialEval[256, Field]
 
+  for i in 0 ..< poly.len:
+    polynomial.evals[i] = poly[i]
 
-proc banderwagonMultiMapToScalarField*(fields: var openArray[Field], points: openArray[Point]) =
+  for i in poly.len ..< 256:
+    polynomial.evals[i].setZero()
+
+  CRS.pedersen_commit(result, polynomial)
+
+proc banderwagonMultiMapToScalarField*(
+    fields: var openArray[Field], points: openArray[Point]
+) =
   fields.batchMapToScalarField(points)
 
-
-proc banderwagonMultiMapToScalarField*(fields: openArray[ptr Field], points: openArray[Point]) =
+proc banderwagonMultiMapToScalarField*(
+    fields: openArray[ptr Field], points: openArray[Point]
+) =
   var correctFields: seq[Fr[Banderwagon]] = @[]
   for field in fields:
-    correctFields.add(Fr[Banderwagon](field[]))  # Assuming Fr[Banderwagon] can be initialized from a Field
+    correctFields.add(Fr[Banderwagon](field[]))
+      # Assuming Fr[Banderwagon] can be initialized from a Field
   correctFields.batchMapToScalarField(points)
-  for i in 0..<correctFields.len:
+  for i in 0 ..< correctFields.len:
     fields[i][] = correctFields[i]
-
 
 proc banderwagonAddPoint*(dst: var Point, src: Point) =
   dst.sum(dst, src)
 
-
 proc bandesnatchSubtract*(x, y: Field): Field =
   result.diff(x, y)
-
 
 # SetUint64 z = v, sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 proc bandesnatchSetUint64*(z: var Field, v: uint64) =
   z.fromInt(int(v))
 
-
 proc fromLEBytes*(field: var Field, data: openArray[byte]) =
-  var temp{.noinit.}: matchingOrderBigInt(Banderwagon)
+  var temp {.noinit.}: matchingOrderBigInt(Banderwagon)
   temp.unmarshal(data, littleEndian)
   field.fromBig(temp)
 
 proc fromBEBytes*(field: var Field, data: openArray[byte]) =
-  var temp{.noinit.}: matchingOrderBigInt(Banderwagon)
+  var temp {.noinit.}: matchingOrderBigInt(Banderwagon)
   temp.unmarshal(data, bigEndian)
   field.fromBig(temp)
 
