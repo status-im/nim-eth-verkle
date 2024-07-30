@@ -9,7 +9,7 @@
 
 import
   std/[random, streams, os, times, strformat],
-  unittest2,
+  unittest,
   ../eth_verkle/[config, utils, math],
   ../eth_verkle/tree/[tree, operations, commitment]
 

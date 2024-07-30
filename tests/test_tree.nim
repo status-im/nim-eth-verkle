@@ -8,10 +8,10 @@
 
 import
   unittest,
-  std/[times, os],
+  std/times,
   ../eth_verkle/[math, encoding],
   ../eth_verkle/tree/[tree, operations, commitment],
-  ../constantine/constantine/serialization/codecs
+  constantine/serialization/codecs
 
 ## Values to be used for testing
 const

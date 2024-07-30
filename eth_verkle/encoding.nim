@@ -6,7 +6,10 @@
 #   at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  ../constantine/constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes],
+  constantine/serialization/[codecs, codecs_banderwagon, codecs_status_codes],
+  constantine/math/ec_twistededwards,
+  constantine/math/arithmetic,
+  constantine/named/algebras,
   ./tree/[tree, operations],
   ./math
 
@@ -34,6 +37,15 @@ const
   LeafChildrenOffSet      = LeafC2CommitmentOffSet + 64      # 64 -> Uncompressed Banderwagon Point Size
 
   BranchNodeSerializationSize = NodeTypeSize + BitListSize + 64
+
+func serializeUncompressed(dst: var array[64, byte], P: Point): CttCodecEccStatus =
+  dst.serializeUncompressed(P.getAffine())
+
+func deserializeUncompressed*(dst: var Point, src: array[64, byte]): CttCodecEccStatus =
+  var p: EC_TwEdw_Aff[Fp[Banderwagon]]
+  let status = p.deserializeUncompressed(src)
+  dst.fromAffine(p)
+  return status
 
 proc bit*(bitlist: openArray[byte], nr: int): bool =
   if len(bitlist) * 8 <= nr:
@@ -91,7 +103,7 @@ proc serializeLeafWithUncompressedCommitments*(
 ## The format is: <nodeType><stem><bitlist><comm><c1comm><c2comm><children...>
 proc serialize*(n: ValuesNode): seq[byte] =
   var cBytes: array[3, array[64, byte]]
-  discard cBytes.serializeBatchUncompressed([n.commitment, n.c1, n.c2])
+  discard cBytes.serializeBatchUncompressed_vartime([n.commitment, n.c1, n.c2])
   return serializeLeafWithUncompressedCommitments(n, cBytes[0], cBytes[1], cBytes[2])
 
 proc parseValuesNode*(serialized: openArray[byte], depth: uint8): ValuesNode =
